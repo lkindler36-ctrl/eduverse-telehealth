@@ -1,2 +1,3 @@
-# eduverse-telehealth
-EduVerse TeleHealth — Georgia virtual clinic
+# EduVerse TeleHealth
+
+Georgia virtual clinic by Von & Bick Healthcare Associates.
