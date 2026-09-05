@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: eduverse
+      POSTGRES_PASSWORD: eduverse
+      POSTGRES_DB: eduverse
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eduverse -d eduverse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://eduverse:eduverse@db:5432/eduverse
+      AUTH_SECRET: change-me-generate-with-openssl-rand
+      AUTH_URL: http://localhost:3000
+      APP_VERSION: "1.0.0"
+      SEED_ON_BOOT: "false"
+      ATTACHMENT_DIR: /app/data/attachments
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
