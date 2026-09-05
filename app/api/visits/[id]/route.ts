@@ -1,7 +1,7 @@
 import { canAccessIndividual } from "@/lib/access";
 import { writeAudit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
-import { canCreateVisit } from "@/lib/roles";
+import { canCreateVisit, noteTypeReadFilter } from "@/lib/roles";
 import { jsonError, requireSessionUser } from "@/lib/session";
 import { visitUpdateSchema } from "@/lib/validators";
 
@@ -19,6 +19,7 @@ export async function GET(_request: Request, ctx: Ctx) {
         individual: true,
         clinician: { select: { id: true, name: true, role: true, credential: true } },
         notes: {
+          where: noteTypeReadFilter(user.role, user.credential),
           include: { author: { select: { id: true, name: true } } },
           orderBy: { createdAt: "desc" },
         },

@@ -1,5 +1,7 @@
 import { assignedIndividualIds } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
+import { noteTypeReadFilter } from "@/lib/roles";
+import { noteQueryFilter } from "@/lib/search-notes";
 import { jsonError, requireSessionUser } from "@/lib/session";
 import { searchSchema } from "@/lib/validators";
 
@@ -18,6 +20,7 @@ export async function GET(request: Request) {
 
     const ids = await assignedIndividualIds(user.id, user.role);
     const q = parsed.data.q;
+    const readable = noteTypeReadFilter(user.role, user.credential);
 
     const individuals = await prisma.individual.findMany({
       where: {
@@ -62,7 +65,9 @@ export async function GET(request: Request) {
     const notes = await prisma.visitNote.findMany({
       where: {
         visit: { individualId: { in: ids } },
+        ...readable,
         ...(parsed.data.noteStatus ? { status: parsed.data.noteStatus } : {}),
+        ...(q ? noteQueryFilter(q) : {}),
       },
       include: {
         visit: {

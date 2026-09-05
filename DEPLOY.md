@@ -13,7 +13,7 @@ Required secrets:
 - `SEED_ON_BOOT` — `true` only on the first boot of a new database
 - `ATTACHMENT_DIR` — default `/app/data/attachments` (attach a volume)
 
-Never enable `MAGIC_LINK_RETURN_URL` in production.
+Magic-link responses never include a verify URL or token.
 
 ---
 

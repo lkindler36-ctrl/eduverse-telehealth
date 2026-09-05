@@ -48,7 +48,16 @@ This is a production Next.js app with Auth.js, Postgres, and Prisma. It replaces
 
    ```bash
    docker compose up --build
+   npx prisma db seed
    ```
+
+   `SEED_ON_BOOT` stays `false` in compose so later restarts do not re-run seed. For a brand-new volume only, you may run one shot:
+
+   ```bash
+   SEED_ON_BOOT=true docker compose up --build
+   ```
+
+   After the first seed, leave it off. Re-running seed does **not** reset existing passwords.
 
 ## Seed staff (change these passwords)
 
@@ -75,7 +84,7 @@ See [STAFF-RUNBOOK.md](./STAFF-RUNBOOK.md). Short version: sign in → dashboard
 | GET | `/api/health` | Liveness + database check (Miss Sparkles) |
 | GET | `/api/version` | App version / commit |
 | GET/POST | `/api/auth/*` | Auth.js |
-| POST | `/api/auth/magic-link` | Request email (or local QA) sign-in link |
+| POST | `/api/auth/magic-link` | Request email sign-in link (always `{ ok: true }`) |
 | GET | `/api/caseload` | Assigned individuals |
 | GET/POST | `/api/visits` | List / create visits |
 | GET/PATCH | `/api/visits/:id` | Visit CRUD |

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,12 +13,18 @@ type VisitType = "MEDICAL" | "BEHAVIORAL_HEALTH" | "DSP_SHIFT";
 export function CreateVisitForm({
   individuals,
   allowedTypes,
+  defaultIndividualId,
 }: {
   individuals: IndividualOption[];
   allowedTypes: VisitType[];
+  defaultIndividualId?: string;
 }) {
   const router = useRouter();
-  const [individualId, setIndividualId] = useState(individuals[0]?.id ?? "");
+  const params = useSearchParams();
+  const requested = defaultIndividualId || params.get("individualId") || "";
+  const initial =
+    individuals.some((ind) => ind.id === requested) ? requested : (individuals[0]?.id ?? "");
+  const [individualId, setIndividualId] = useState(initial);
   const [visitType, setVisitType] = useState<VisitType>(allowedTypes[0] ?? "MEDICAL");
   const [scheduledAt, setScheduledAt] = useState("");
   const [reason, setReason] = useState("");

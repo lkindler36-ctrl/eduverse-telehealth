@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { canAccessIndividual } from "@/lib/access";
 import { writeAudit } from "@/lib/audit";
-import { allowedNoteTypes, canCreateVisit, canWriteNotes, defaultNoteType } from "@/lib/roles";
+import { allowedNoteTypes, canCreateVisit, canReadNoteType, canWriteNotes, defaultNoteType } from "@/lib/roles";
 import { requireStaff } from "@/lib/staff-page";
 import { formatDateTime } from "@/lib/utils";
 import { StaffShell } from "@/components/staff-shell";
@@ -41,6 +41,9 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
 
   const noteTypes = allowedNoteTypes(user.role, user.credential);
   const suggested = defaultNoteType(visit.visitType);
+  const visibleNotes = visit.notes.filter((note) =>
+    canReadNoteType(user.role, user.credential, note.noteType),
+  );
 
   return (
     <StaffShell user={user} pathname="/visits">
@@ -87,8 +90,8 @@ export default async function VisitDetailPage({ params }: { params: Promise<{ id
             {canWriteNotes(user.role) && noteTypes.includes(suggested) && (
               <StartNoteButton visitId={visit.id} noteType={suggested} />
             )}
-            {visit.notes.length === 0 && <p className="text-sm text-muted">No notes yet.</p>}
-            {visit.notes.map((note) => (
+            {visibleNotes.length === 0 && <p className="text-sm text-muted">No notes yet.</p>}
+            {visibleNotes.map((note) => (
               <div key={note.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-elevated p-3">
                 <div>
                   <p className="text-sm font-medium">

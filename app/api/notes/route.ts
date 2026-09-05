@@ -1,7 +1,7 @@
 import { canAccessIndividual } from "@/lib/access";
 import { writeAudit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
-import { allowedNoteTypes, canWriteNotes, defaultNoteType } from "@/lib/roles";
+import { allowedNoteTypes, canWriteNotes, defaultNoteType, noteTypeReadFilter } from "@/lib/roles";
 import { jsonError, requireSessionUser } from "@/lib/session";
 import { noteCreateSchema, parseNoteContent } from "@/lib/validators";
 
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       return jsonError("Forbidden", 403);
     }
     const notes = await prisma.visitNote.findMany({
-      where: { visitId },
+      where: { visitId, ...noteTypeReadFilter(user.role, user.credential) },
       include: { author: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" },
     });

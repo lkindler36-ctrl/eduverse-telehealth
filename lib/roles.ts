@@ -32,6 +32,24 @@ export function allowedNoteTypes(role: Role, credential: ClinicianCredential | n
   return [];
 }
 
+/** Read ACL. Auditors may view every type; writers follow allowedNoteTypes(). */
+export function readableNoteTypes(role: Role, credential: ClinicianCredential | null): NoteType[] {
+  if (role === "ADMIN" || role === "AUDITOR") return ["SOAP", "BH_PROGRESS", "DSP_SHIFT"];
+  return allowedNoteTypes(role, credential);
+}
+
+export function canReadNoteType(
+  role: Role,
+  credential: ClinicianCredential | null,
+  noteType: NoteType,
+) {
+  return readableNoteTypes(role, credential).includes(noteType);
+}
+
+export function noteTypeReadFilter(role: Role, credential: ClinicianCredential | null) {
+  return { noteType: { in: readableNoteTypes(role, credential) } };
+}
+
 export function allowedVisitTypes(role: Role, credential: ClinicianCredential | null): VisitType[] {
   if (role === "ADMIN") return ["MEDICAL", "BEHAVIORAL_HEALTH", "DSP_SHIFT"];
   if (role === "DSP") return ["DSP_SHIFT"];

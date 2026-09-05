@@ -1,7 +1,7 @@
 import { canAccessIndividual } from "@/lib/access";
 import { writeAudit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
-import { canLockNotes } from "@/lib/roles";
+import { canLockNotes, canReadNoteType } from "@/lib/roles";
 import { jsonError, requireSessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +20,9 @@ export async function POST(_request: Request, ctx: Ctx) {
     if (!existing) return jsonError("Note not found", 404);
     if (!(await canAccessIndividual(user.id, user.role, existing.visit.individualId))) {
       return jsonError("Forbidden", 403);
+    }
+    if (!canReadNoteType(user.role, user.credential, existing.noteType)) {
+      return jsonError("Note not found", 404);
     }
     if (existing.status === "LOCKED") return jsonError("Note is already locked", 409);
     if (user.role !== "ADMIN" && existing.authorId !== user.id) {

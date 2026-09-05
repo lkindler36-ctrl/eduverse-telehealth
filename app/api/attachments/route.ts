@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { canAccessIndividual } from "@/lib/access";
 import { writeAudit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
-import { canWriteNotes } from "@/lib/roles";
+import { canReadNoteType, canWriteNotes } from "@/lib/roles";
 import { jsonError, requireSessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +35,9 @@ export async function POST(request: Request) {
     if (note.status === "LOCKED") return jsonError("Cannot attach files to a locked note", 409);
     if (!(await canAccessIndividual(user.id, user.role, note.visit.individualId))) {
       return jsonError("Forbidden", 403);
+    }
+    if (!canReadNoteType(user.role, user.credential, note.noteType)) {
+      return jsonError("Note not found", 404);
     }
     if (user.role !== "ADMIN" && note.authorId !== user.id) {
       return jsonError("Only the author or an admin can attach files", 403);

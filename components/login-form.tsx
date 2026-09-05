@@ -41,22 +41,13 @@ export function LoginForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
-    const data = (await res.json()) as { ok?: boolean; emailed?: boolean; verifyUrl?: string; error?: string };
+    const data = (await res.json()) as { ok?: boolean; error?: string };
     setBusy(false);
     if (!res.ok) {
       setMessage(data.error ?? "Unable to start magic link.");
       return;
     }
-    if (data.verifyUrl) {
-      setMessage("Local QA link ready — opening verify page.");
-      router.push(data.verifyUrl.replace(/^https?:\/\/[^/]+/, ""));
-      return;
-    }
-    if (data.emailed) {
-      setMessage("If that account exists, a sign-in link is on its way. It expires in 20 minutes.");
-      return;
-    }
-    setMessage("Password sign-in is available now. Magic link needs EMAIL_SERVER (or MAGIC_LINK_RETURN_URL=true for local QA).");
+    setMessage("If that account exists, a sign-in link is on its way. It expires in 20 minutes.");
   }
 
   return (

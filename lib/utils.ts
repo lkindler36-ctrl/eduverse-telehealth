@@ -14,10 +14,13 @@ export function formatDateTime(value: Date | string) {
   }).format(d);
 }
 
+/** Date-only values (DOB) use UTC calendar parts so midnight UTC does not shift a day west. */
 export function formatDate(value: Date | string) {
   const d = typeof value === "string" ? new Date(value) : value;
   return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    dateStyle: "medium",
+    timeZone: "UTC",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   }).format(d);
 }

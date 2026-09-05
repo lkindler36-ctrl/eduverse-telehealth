@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { assignedIndividualIds } from "@/lib/access";
+import { noteTypeReadFilter } from "@/lib/roles";
 import { requireStaff } from "@/lib/staff-page";
 import { formatDateTime } from "@/lib/utils";
 import { StaffShell } from "@/components/staff-shell";
@@ -16,7 +17,7 @@ export default async function VisitsPage() {
     where: { individualId: { in: ids } },
     include: {
       individual: { select: { displayName: true, synthetic: true } },
-      notes: { select: { id: true, status: true } },
+      notes: { where: noteTypeReadFilter(user.role, user.credential), select: { id: true, status: true } },
     },
     orderBy: { scheduledAt: "desc" },
   });

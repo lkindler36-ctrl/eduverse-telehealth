@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { assignedIndividualIds } from "@/lib/access";
 import { allowedVisitTypes, canCreateVisit } from "@/lib/roles";
@@ -8,8 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export const dynamic = "force-dynamic";
 
-export default async function NewVisitPage() {
+export default async function NewVisitPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ individualId?: string }>;
+}) {
   const user = await requireStaff();
+  const { individualId } = await searchParams;
   const ids = await assignedIndividualIds(user.id, user.role);
   const individuals = await prisma.individual.findMany({
     where: { id: { in: ids }, active: true },
@@ -36,10 +42,13 @@ export default async function NewVisitPage() {
           </CardHeader>
           <CardContent>
             {canCreateVisit(user.role) ? (
-              <CreateVisitForm
-                individuals={individuals}
-                allowedTypes={allowedVisitTypes(user.role, user.credential)}
-              />
+              <Suspense>
+                <CreateVisitForm
+                  individuals={individuals}
+                  allowedTypes={allowedVisitTypes(user.role, user.credential)}
+                  defaultIndividualId={individualId}
+                />
+              </Suspense>
             ) : (
               <p className="text-sm text-muted">Auditors cannot create visits.</p>
             )}

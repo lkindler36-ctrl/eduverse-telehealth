@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { sendMagicLinkEmail, smtpConfigured } from "@/lib/mail";
 import { jsonError } from "@/lib/session";
 import { logInfo } from "@/lib/logger";
+import { magicLinkAck } from "@/lib/magic-link";
+import { clientRateKey, rateLimitAllow } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +15,14 @@ export async function POST(request: Request) {
     .toLowerCase();
   if (!email) return jsonError("Email is required", 400);
 
+  if (!rateLimitAllow(clientRateKey(request, email))) {
+    return jsonError("Too many requests", 429);
+  }
+
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true, active: true } });
-  // Always look successful to avoid account enumeration.
   if (!user?.active) {
     logInfo({ event: "magic_link_unknown" });
-    return Response.json({ ok: true });
+    return Response.json(magicLinkAck());
   }
 
   const raw = randomBytes(32).toString("hex");
@@ -36,10 +41,5 @@ export async function POST(request: Request) {
     await sendMagicLinkEmail(email, verifyUrl);
   }
 
-  const returnUrl = process.env.MAGIC_LINK_RETURN_URL === "true";
-  return Response.json({
-    ok: true,
-    emailed: smtpConfigured(),
-    verifyUrl: returnUrl ? verifyUrl : undefined,
-  });
+  return Response.json(magicLinkAck());
 }

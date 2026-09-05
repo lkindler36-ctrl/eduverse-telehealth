@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { assignedIndividualIds } from "@/lib/access";
+import { noteTypeReadFilter } from "@/lib/roles";
 import { requireStaff } from "@/lib/staff-page";
 import { formatDateTime } from "@/lib/utils";
 import { StaffShell } from "@/components/staff-shell";
@@ -23,13 +24,20 @@ export default async function DashboardPage() {
       where: { individualId: { in: ids }, status: { in: ["SCHEDULED", "IN_PROGRESS"] } },
     }),
     prisma.visitNote.count({
-      where: { visit: { individualId: { in: ids } }, status: "DRAFT" },
+      where: {
+        visit: { individualId: { in: ids } },
+        status: "DRAFT",
+        ...noteTypeReadFilter(user.role, user.credential),
+      },
     }),
     prisma.visit.findMany({
       where: { individualId: { in: ids } },
       include: {
         individual: { select: { displayName: true, synthetic: true } },
-        notes: { select: { id: true, status: true, noteType: true } },
+        notes: {
+          where: noteTypeReadFilter(user.role, user.credential),
+          select: { id: true, status: true, noteType: true },
+        },
       },
       orderBy: { scheduledAt: "desc" },
       take: 8,

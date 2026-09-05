@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { canAccessIndividual } from "@/lib/access";
 import { writeAudit } from "@/lib/audit";
-import { canWriteNotes } from "@/lib/roles";
+import { canReadNoteType, canWriteNotes } from "@/lib/roles";
 import { requireStaff } from "@/lib/staff-page";
 import { formatDateTime } from "@/lib/utils";
 import { parseNoteContent } from "@/lib/validators";
@@ -31,6 +31,7 @@ export default async function NotePage({
   });
   if (!note || note.visitId !== id) notFound();
   if (!(await canAccessIndividual(user.id, user.role, note.visit.individualId))) notFound();
+  if (!canReadNoteType(user.role, user.credential, note.noteType)) notFound();
 
   await writeAudit({
     actorId: user.id,

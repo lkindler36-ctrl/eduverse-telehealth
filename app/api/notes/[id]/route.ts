@@ -1,7 +1,8 @@
 import { canAccessIndividual } from "@/lib/access";
 import { writeAudit } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
-import { canWriteNotes } from "@/lib/roles";
+import type { ClinicianCredential, NoteType, Role } from "@prisma/client";
+import { canReadNoteType, canWriteNotes } from "@/lib/roles";
 import { jsonError, requireSessionUser } from "@/lib/session";
 import { noteUpdateSchema, parseNoteContent } from "@/lib/validators";
 
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-async function loadAccessibleNote(userId: string, role: "ADMIN" | "CLINICIAN" | "DSP" | "AUDITOR", id: string) {
+async function loadAccessibleNote(userId: string, role: Role, id: string) {
   const note = await prisma.visitNote.findUnique({
     where: { id },
     include: {
@@ -26,12 +27,19 @@ async function loadAccessibleNote(userId: string, role: "ADMIN" | "CLINICIAN" | 
   return { note };
 }
 
+function denyUnreadType(role: Role, credential: ClinicianCredential | null, noteType: NoteType) {
+  if (canReadNoteType(role, credential, noteType)) return null;
+  return jsonError("Note not found", 404);
+}
+
 export async function GET(_request: Request, ctx: Ctx) {
   try {
     const user = await requireSessionUser();
     const { id } = await ctx.params;
     const result = await loadAccessibleNote(user.id, user.role, id);
     if ("error" in result && result.error) return result.error;
+    const unread = denyUnreadType(user.role, user.credential, result.note!.noteType);
+    if (unread) return unread;
     await writeAudit({
       actorId: user.id,
       action: "NOTE_VIEW",
@@ -54,6 +62,8 @@ export async function PATCH(request: Request, ctx: Ctx) {
     const result = await loadAccessibleNote(user.id, user.role, id);
     if ("error" in result && result.error) return result.error;
     const existing = result.note!;
+    const unread = denyUnreadType(user.role, user.credential, existing.noteType);
+    if (unread) return unread;
     if (existing.status === "LOCKED") return jsonError("Locked notes cannot be edited", 409);
     if (user.role !== "ADMIN" && existing.authorId !== user.id) {
       return jsonError("Only the author or an admin can edit this draft", 403);

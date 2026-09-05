@@ -2,6 +2,7 @@ import { canAccessIndividual } from "@/lib/access";
 import { writeAudit } from "@/lib/audit";
 import { renderNotePdf } from "@/lib/pdf";
 import { prisma } from "@/lib/prisma";
+import { canReadNoteType } from "@/lib/roles";
 import { jsonError, requireSessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,9 @@ export async function GET(_request: Request, ctx: Ctx) {
     if (!note) return jsonError("Note not found", 404);
     if (!(await canAccessIndividual(user.id, user.role, note.visit.individualId))) {
       return jsonError("Forbidden", 403);
+    }
+    if (!canReadNoteType(user.role, user.credential, note.noteType)) {
+      return jsonError("Note not found", 404);
     }
 
     const pdf = await renderNotePdf(note);

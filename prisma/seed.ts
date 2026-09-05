@@ -5,12 +5,31 @@ const prisma = new PrismaClient();
 
 const SEED_PASSWORD = "ChangeMe!2026";
 
+async function seedAuditOnce(data: {
+  actorId: string;
+  action: "NOTE_LOCK" | "NOTE_CREATE";
+  entityType: string;
+  entityId: string;
+  metadata: Prisma.InputJsonValue;
+}) {
+  const existing = await prisma.auditLog.findFirst({
+    where: {
+      action: data.action,
+      entityType: data.entityType,
+      entityId: data.entityId,
+    },
+    select: { id: true },
+  });
+  if (existing) return;
+  await prisma.auditLog.create({ data });
+}
+
 async function main() {
   const passwordHash = await hash(SEED_PASSWORD, 12);
 
   const admin = await prisma.user.upsert({
     where: { email: "admin@vbhealthcare.local" },
-    update: { passwordHash, active: true },
+    update: { name: "Riley Admin", role: "ADMIN" },
     create: {
       email: "admin@vbhealthcare.local",
       name: "Riley Admin",
@@ -21,7 +40,7 @@ async function main() {
 
   const rn = await prisma.user.upsert({
     where: { email: "rn.demo@vbhealthcare.local" },
-    update: { passwordHash, active: true, credential: "RN" },
+    update: { name: "Jordan Hale, RN", role: "CLINICIAN", credential: "RN" },
     create: {
       email: "rn.demo@vbhealthcare.local",
       name: "Jordan Hale, RN",
@@ -33,7 +52,7 @@ async function main() {
 
   const bh = await prisma.user.upsert({
     where: { email: "bh.demo@vbhealthcare.local" },
-    update: { passwordHash, active: true, credential: "BH" },
+    update: { name: "Casey Nguyen, LPC", role: "CLINICIAN", credential: "BH" },
     create: {
       email: "bh.demo@vbhealthcare.local",
       name: "Casey Nguyen, LPC",
@@ -45,7 +64,7 @@ async function main() {
 
   const dsp = await prisma.user.upsert({
     where: { email: "dsp.demo@vbhealthcare.local" },
-    update: { passwordHash, active: true },
+    update: { name: "Morgan Ellis, DSP", role: "DSP" },
     create: {
       email: "dsp.demo@vbhealthcare.local",
       name: "Morgan Ellis, DSP",
@@ -56,7 +75,7 @@ async function main() {
 
   const auditor = await prisma.user.upsert({
     where: { email: "auditor.demo@vbhealthcare.local" },
-    update: { passwordHash, active: true },
+    update: { name: "Quinn Auditor", role: "AUDITOR" },
     create: {
       email: "auditor.demo@vbhealthcare.local",
       name: "Quinn Auditor",
@@ -249,23 +268,19 @@ async function main() {
     },
   });
 
-  await prisma.auditLog.createMany({
-    data: [
-      {
-        actorId: rn.id,
-        action: "NOTE_LOCK",
-        entityType: "visit_note",
-        entityId: "note_jane_soap_locked",
-        metadata: { noteType: "SOAP", toStatus: "LOCKED" },
-      },
-      {
-        actorId: bh.id,
-        action: "NOTE_CREATE",
-        entityType: "visit_note",
-        entityId: "note_alex_bh_draft",
-        metadata: { noteType: "BH_PROGRESS", status: "DRAFT" },
-      },
-    ],
+  await seedAuditOnce({
+    actorId: rn.id,
+    action: "NOTE_LOCK",
+    entityType: "visit_note",
+    entityId: "note_jane_soap_locked",
+    metadata: { noteType: "SOAP", toStatus: "LOCKED" },
+  });
+  await seedAuditOnce({
+    actorId: bh.id,
+    action: "NOTE_CREATE",
+    entityType: "visit_note",
+    entityId: "note_alex_bh_draft",
+    metadata: { noteType: "BH_PROGRESS", status: "DRAFT" },
   });
 
   void auditor;
