@@ -1,8 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createFictionalHandoffRegistry } from '../src/lib/eduverse/handoff-core.mjs';
+import { createFictionalJsonFileStore } from '../src/lib/eduverse/handoff-json-file-store.mjs';
 
-const create = () => createFictionalHandoffRegistry({ clock: () => '2026-10-18T12:00:00.000Z' });
+const clock = () => '2026-10-18T12:00:00.000Z';
+const create = (options = {}) => createFictionalHandoffRegistry({ clock, ...options });
 const start = (r, correlationId = 'test-1') => r.receive({
   correlationId, source: 'VBHC', target: 'EDUVERSE_TELEHEALTH', fictional: true,
 });
@@ -13,6 +18,16 @@ function advanceToDispatch(r, taskId, dispatchId = 'dispatch-1') {
   r.requestAssignment(taskId, 'coordinator');
   r.acknowledgeAssignment(taskId, { assigneeId: 'fictional-staff-1', acknowledgementId: 'ack-1' });
   r.recordDispatchAttempt(taskId, { dispatchId, sentBy: 'dispatcher' });
+}
+
+function withStore(run) {
+  const directory = mkdtempSync(join(tmpdir(), 'vbhc-handoff-'));
+  const filePath = join(directory, 'fictional-store.json');
+  try {
+    return run({ filePath, store: createFictionalJsonFileStore({ filePath }) });
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }
 
 test('fictional administrative handoff records an ordered, linked evidence chain', () => {
@@ -95,3 +110,56 @@ test('returned snapshots do not permit mutation of the internal registry', () =>
   s.events.push({state:'FAKE'});
   assert.equal(r.get(s.taskId).events.length, 1);
 });
+
+test('fictional task and transition history survive a registry restart', () => withStore(({ filePath, store }) => {
+  const first = create({ store });
+  const started = start(first, 'restart-1');
+  first.validate(started.taskId, 'reviewer');
+
+  const secondStore = createFictionalJsonFileStore({ filePath });
+  const restarted = create({ store: secondStore });
+  const recovered = restarted.get(started.taskId);
+  assert.equal(recovered.state, 'VALIDATED');
+  assert.equal(recovered.events.length, 2);
+  const advanced = restarted.attachPersistenceEvidence(started.taskId, {
+    storageRecordId: 'row-restart-1', retrievedBy: 'reader-2',
+  });
+  assert.equal(advanced.state, 'PERSISTENCE_EVIDENCE_ATTACHED');
+  assert.match(advanced.events.at(-1).evidence.limitation, /post-write readback verified/);
+  assert.equal(JSON.parse(readFileSync(filePath, 'utf8')).records[started.taskId].events.length, 3);
+}));
+
+test('duplicate correlation remains idempotent after registry restart', () => withStore(({ filePath, store }) => {
+  const first = create({ store });
+  const started = start(first, 'restart-dedupe-1');
+  const restarted = create({ store: createFictionalJsonFileStore({ filePath }) });
+  const duplicate = start(restarted, 'restart-dedupe-1');
+  assert.equal(duplicate.taskId, started.taskId);
+  assert.equal(duplicate.eventId, started.eventId);
+  assert.throws(() => restarted.receive({
+    correlationId: 'restart-dedupe-1',
+    source: 'EDUVERSE_TELEHEALTH',
+    target: 'VBHC',
+    fictional: true,
+  }), /conflict/);
+}));
+
+test('durable sequence prevents task ID reuse after restart', () => withStore(({ filePath, store }) => {
+  const first = create({ store });
+  const a = start(first, 'sequence-a');
+  const restarted = create({ store: createFictionalJsonFileStore({ filePath }) });
+  const b = start(restarted, 'sequence-b');
+  assert.equal(a.taskId, 'demo-task-0001');
+  assert.equal(b.taskId, 'demo-task-0002');
+}));
+
+test('corrupt durable state fails closed without overwriting evidence', () => withStore(({ filePath, store }) => {
+  const r = create({ store });
+  start(r, 'corrupt-1');
+  writeFileSync(filePath, '{"format":"wrong"}\n', 'utf8');
+  const corruptedBytes = readFileSync(filePath, 'utf8');
+  assert.throws(() => create({
+    store: createFictionalJsonFileStore({ filePath }),
+  }).get('demo-task-0001'), /invalid schema/);
+  assert.equal(readFileSync(filePath, 'utf8'), corruptedBytes);
+}));
