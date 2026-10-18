@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'src/lib/eduverse/handoff-core.mjs'
+      - 'src/lib/eduverse/handoff-json-file-store.mjs'
       - 'scripts/handoff-core.test.mjs'
       - '.github/workflows/handoff-core.yml'
   workflow_dispatch:
