@@ -77,6 +77,31 @@ test('fictional administrative handoff records an ordered, linked evidence chain
   assert.equal(end.events.at(-1).evidence.evidenceOrigin, 'CALLER_SUPPLIED_UNVERIFIED');
 });
 
+test('static or backward clocks preserve strict ordering across restart', () => withStore(({ filePath, store }) => {
+  const staticClock = () => '2026-10-18T12:00:00.000Z';
+  const first = create({ clock: staticClock, store });
+  const started = start(first, 'clock-regression-1');
+  first.validate(started.taskId, 'reviewer');
+
+  const backwardClock = () => '2026-10-18T11:59:59.000Z';
+  const restarted = create({
+    clock: backwardClock,
+    store: createFictionalJsonFileStore({ filePath }),
+  });
+  const end = restarted.attachPersistenceEvidence(started.taskId, {
+    storageRecordId: 'clock-row-1',
+    retrievedBy: 'independent-reader',
+  });
+  assert.deepEqual(
+    end.events.map((event) => event.at),
+    [
+      '2026-10-18T12:00:00.000Z',
+      '2026-10-18T12:00:00.001Z',
+      '2026-10-18T12:00:00.002Z',
+    ],
+  );
+}));
+
 test('every transition preserves event, task and correlation linkage', () => {
   const r = create();
   const startState = start(r, 'linkage-1');
@@ -278,3 +303,4 @@ test('mismatched dispatch or non-independent actor fails closed', async () => {
   }), /must differ/);
   assert.equal(r.get(taskId).state, 'DISPATCH_ATTEMPTED');
 });
+
