@@ -63,15 +63,28 @@ export function createFictionalHandoffRegistry({
     return stored ? remember(stored) : null;
   }
 
-  function persist(record) {
-    if (!store) return remember(record);
-    const readback = store.save(snapshot(record));
+  function persist(record, expectedVersion = 0) {
+    if (!store) {
+      const next = snapshot(record);
+      next.version = expectedVersion + 1;
+      return remember(next);
+    }
+    let readback;
+    try {
+      readback = store.save(snapshot(record), { expectedVersion });
+    } catch (error) {
+      if (error?.code === 'HANDOFF_STORE_CONFLICT') {
+        byTask.delete(record.taskId);
+      }
+      throw error;
+    }
     if (
       !readback ||
       readback.taskId !== record.taskId ||
       readback.eventId !== record.eventId ||
       readback.correlationId !== record.correlationId ||
       readback.state !== record.state ||
+      readback.version !== expectedVersion + 1 ||
       readback.events.length !== record.events.length
     ) {
       throw new Error('Durable store readback did not match the written record.');
@@ -98,7 +111,7 @@ export function createFictionalHandoffRegistry({
       at,
       evidence: { ...evidence },
     });
-    return snapshot(persist(next));
+    return snapshot(persist(next, current.version));
   }
 
   function recordedDispatch(taskId) {
@@ -132,10 +145,10 @@ export function createFictionalHandoffRegistry({
       const taskId = 'demo-task-' + sequence;
       const eventId = 'demo-event-' + sequence;
       const record = {
-        eventId, taskId, correlationId, source, target, fictional: true, state: 'RECEIVED',
+        eventId, taskId, correlationId, source, target, fictional: true, version: 0, state: 'RECEIVED',
         events: [{ eventId, taskId, correlationId, state: 'RECEIVED', actor: 'staging-fixture', at, evidence: {} }],
       };
-      return snapshot(persist(record));
+      return snapshot(persist(record, 0));
     },
     validate(taskId, validatedBy) {
       return update(taskId, 'RECEIVED', 'VALIDATED', validatedBy);

@@ -22,13 +22,17 @@ function emptyDocument() {
   return { format: FORMAT, nextSequence: 1, records: {} };
 }
 
-function validateRecord(record) {
+function validateRecord(record, { allowZeroVersion = false } = {}) {
   if (!record || typeof record !== 'object' || record.fictional !== true) {
     throw new Error('The durable adapter accepts fictional records ONLY.');
   }
   safeId(record.taskId, 'taskId');
   safeId(record.eventId, 'eventId');
   safeId(record.correlationId, 'correlationId');
+  const minimumVersion = allowZeroVersion ? 0 : 1;
+  if (!Number.isSafeInteger(record.version) || record.version < minimumVersion) {
+    throw new Error('Stored record must contain a valid version.');
+  }
   if (!Array.isArray(record.events) || record.events.length === 0) {
     throw new Error('Stored record must contain an event history.');
   }
@@ -90,13 +94,29 @@ export function createFictionalJsonFileStore({ filePath }) {
       writeDocument(document);
       return sequence;
     },
-    save(record) {
-      const next = validateRecord(record);
+    save(record, { expectedVersion } = {}) {
+      if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0) {
+        throw new Error('expectedVersion must be a nonnegative safe integer.');
+      }
+      const next = validateRecord(record, { allowZeroVersion: true });
+      if (next.version !== expectedVersion) {
+        throw new Error('Record version must match expectedVersion.');
+      }
       const document = readDocument();
       const existing = document.records[next.taskId];
       if (existing && existing.correlationId !== next.correlationId) {
         throw new Error('Task ID conflicts with another correlation ID.');
       }
+      const actualVersion = existing ? existing.version : 0;
+      if (actualVersion !== expectedVersion) {
+        const conflict = new Error(
+          'Stale write rejected: expected version ' + expectedVersion +
+          ' but durable version is ' + actualVersion + '.',
+        );
+        conflict.code = 'HANDOFF_STORE_CONFLICT';
+        throw conflict;
+      }
+      next.version = expectedVersion + 1;
       document.records[next.taskId] = next;
       writeDocument(document);
       return this.read(next.taskId);
@@ -115,4 +135,3 @@ export function createFictionalJsonFileStore({ filePath }) {
     },
   };
 }
-

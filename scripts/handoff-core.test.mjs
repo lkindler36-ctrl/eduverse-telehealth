@@ -183,6 +183,31 @@ test('corrupt durable state fails closed without overwriting evidence', () => wi
   assert.equal(readFileSync(filePath, 'utf8'), corruptedBytes);
 }));
 
+test('stale registry cannot overwrite a newer durable transition', () => withStore(({ filePath, store }) => {
+  const seed = create({ store });
+  const started = start(seed, 'concurrent-write-1');
+  assert.equal(started.version, 1);
+
+  const first = create({ store: createFictionalJsonFileStore({ filePath }) });
+  const stale = create({ store: createFictionalJsonFileStore({ filePath }) });
+  assert.equal(first.get(started.taskId).version, 1);
+  assert.equal(stale.get(started.taskId).version, 1);
+
+  const advanced = first.validate(started.taskId, 'reviewer-1');
+  assert.equal(advanced.version, 2);
+  assert.throws(
+    () => stale.validate(started.taskId, 'reviewer-2'),
+    (error) => error?.code === 'HANDOFF_STORE_CONFLICT' && /Stale write rejected/.test(error.message),
+  );
+
+  const durable = create({ store: createFictionalJsonFileStore({ filePath }) }).get(started.taskId);
+  assert.equal(durable.state, 'VALIDATED');
+  assert.equal(durable.version, 2);
+  assert.equal(durable.events.length, 2);
+  assert.equal(durable.events.at(-1).actor, 'reviewer-1');
+  assert.equal(stale.get(started.taskId).version, 2);
+}));
+
 test('authenticated reader fixture links receipt to the exact dispatch', async () => withStoreAsync(async ({ filePath, store }) => {
   const first = create({ store });
   const started = start(first, 'reader-success');
