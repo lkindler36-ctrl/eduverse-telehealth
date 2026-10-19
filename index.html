@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDuVerse TeleHealth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b1020; --panel:#121a30; --panel2:#0f1730; --line:#24304f;
+  --ink:#eaf0ff; --muted:#9fb0d6; --gold:#e5c46b; --gold2:#caa94e;
+  --blue:#6ea8ff; --green:#58d08b; --amber:#ffbf5f; --red:#ff7a6b;
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-size:15px;line-height:1.5}
+a{color:var(--blue)}
+.muted{color:var(--muted)}
+.gold{color:var(--gold)}
+.btn{background:var(--gold);color:#1a1300;border:none;border-radius:10px;padding:9px 14px;font-weight:700;font-family:inherit;cursor:pointer;font-size:14px}
+.btn:hover{background:var(--gold2)}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.ghost:hover{border-color:var(--gold)}
+.btn.sm{padding:6px 10px;font-size:13px;border-radius:8px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+input,select,textarea{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:14px;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold)}
+label{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-weight:600;letter-spacing:.02em;text-transform:uppercase}
+.field{margin-bottom:14px}
+.tag{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid var(--line)}
+
+/* login */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:26px}
+.login-card{width:100%;max-width:400px;text-align:center}
+.crown{font-size:30px}
+.brand{font-weight:800;font-size:24px;letter-spacing:.01em;margin:6px 0 2px}
+.brand .te{color:var(--gold)}
+.tagline{font-size:13px;color:var(--muted);font-style:italic;margin-bottom:22px}
+.login-card .field{text-align:left}
+.err{color:var(--red);font-size:13px;margin-top:10px;min-height:18px}
+.demo-note{font-size:12px;color:var(--muted);margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+
+/* app shell */
+#app{display:none;min-height:100vh;grid-template-columns:230px 1fr}
+.side{background:var(--panel2);border-right:1px solid var(--line);padding:18px 12px;display:flex;flex-direction:column;gap:3px;position:sticky;top:0;height:100vh;overflow:auto}
+.side .logo{padding:6px 10px 14px}
+.side .logo .brand{font-size:18px;margin:0}
+.side .logo .tagline{margin:0;font-size:11px}
+.nav{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;cursor:pointer;color:var(--muted);font-weight:600;font-size:14px}
+.nav:hover{background:#17213d;color:var(--ink)}
+.nav.active{background:#1b2746;color:var(--ink)}
+.nav .ic{width:18px;text-align:center}
+.side .spacer{flex:1}
+.who{font-size:12px;color:var(--muted);padding:10px;border-top:1px solid var(--line);margin-top:6px}
+.main{padding:24px 26px;max-width:1100px}
+.h1{font-size:22px;font-weight:800;margin:0 0 2px}
+.sub{color:var(--muted);font-size:13px;margin:0 0 20px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px}
+.tile .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:600}
+.tile .v{font-size:28px;font-weight:800;margin-top:4px}
+.tile .v.gold{color:var(--gold)}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:11px 10px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+.panel-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px 16px 8px;margin-bottom:18px;overflow:auto}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.right{margin-left:auto}
+.loading{color:var(--muted);padding:30px;text-align:center}
+.empty{color:var(--muted);padding:20px 10px;font-style:italic}
+.pill-on{color:var(--green)} .pill-off{color:var(--muted)} .pill-amber{color:var(--amber)} .pill-red{color:var(--red)} .pill-blue{color:var(--blue)}
+.modal-bg{position:fixed;inset:0;background:rgba(5,8,18,.7);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;width:100%;max-width:440px}
+.modal h3{margin:0 0 14px;font-size:18px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--gold);border-radius:10px;padding:12px 18px;font-weight:600;z-index:80;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+@media (max-width:760px){
+  #app{grid-template-columns:1fr}
+  .side{position:fixed;left:0;top:0;transform:translateX(-100%);transition:.2s;z-index:40;width:230px}
+  .side.open{transform:none}
+  .main{padding:16px}
+  .topbar{display:flex!important}
+}
+.topbar{display:none;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel2);position:sticky;top:0;z-index:30}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="card login-card">
+    <div class="brand">EDuVerse <span class="te">TeleHealth</span></div>
+    <div class="tagline">Built by faith.</div>
+    <form id="loginForm">
+      <div class="field"><label>Email</label><input id="email" type="email" autocomplete="username" placeholder="you@agency.org"></div>
+      <div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+      <button class="btn" type="submit" style="width:100%" id="loginBtn">Sign in</button>
+      <div class="err" id="loginErr"></div>
+    </form>
+    <div class="demo-note">
+      Want to see it live? <button class="btn ghost sm" id="demoBtn" type="button">Use demo login</button><br>
+      <span style="opacity:.8">Loads the Von &amp; Bick demo agency with sample staff &amp; data.</span>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="side" id="side">
+    <div class="logo">
+      <div class="brand">EDuVerse <span class="te">TeleHealth</span></div>
+      <div class="tagline muted">Built by faith.</div>
+    </div>
+    <div class="nav" data-view="dashboard"><span class="ic">▣</span> Dashboard</div>
+    <div class="nav" data-view="clock"><span class="ic">◷</span> Time Clock</div>
+    <div class="nav" data-view="team"><span class="ic">◉</span> Team</div>
+    <div class="nav" data-view="scheduling"><span class="ic">▦</span> Scheduling</div>
+    <div class="nav" data-view="evv"><span class="ic">✓</span> EVV Visits</div>
+    <div class="nav" data-view="incidents"><span class="ic">▲</span> Incidents</div>
+    <div class="nav" data-view="referrals"><span class="ic">➜</span> Referrals</div>
+    <div class="nav" data-view="bgcheck"><span class="ic">⛨</span> Background Checks</div>
+    <div class="nav" data-view="verification"><span class="ic">◆</span> Staff Verification</div>
+    <div class="nav" data-view="appointments"><span class="ic">▤</span> Appointments</div>
+    <div class="nav" data-view="recruiting"><span class="ic">✦</span> Recruiting</div>
+    <div class="nav" data-view="pharmacy"><span class="ic">℞</span> Pharmacy</div>
+    <div class="nav" data-view="marketing"><span class="ic">◈</span> Marketing</div>
+    <div class="nav" data-view="royalvoice"><span class="ic">☎</span> Royal Voice</div>
+    <div class="spacer"></div>
+    <div class="who" id="whoami"></div>
+    <div class="nav" id="signout"><span class="ic">⇦</span> Sign out</div>
+  </div>
+  <div>
+    <div class="topbar"><button class="btn ghost sm" id="menuBtn">☰</button><strong>EDuVerse TeleHealth</strong></div>
+    <div class="main" id="main"><div class="loading">Loading…</div></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+<script>
+(function(){
+"use strict";
+var SB_URL="https://midrpyhrefaxlfempgml.supabase.co";
+var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pZHJweWhyZWZheGxmZW1wZ21sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcxNTA1MjIsImV4cCI6MjA3MjcyNjUyMn0.dMC4yPiUlP7W0bKe2uRaRQuaIGiuZe9AP8jw2NcHmW0";
+var sb = window.supabase.createClient(SB_URL, SB_KEY, { db:{schema:"eduverse"}, auth:{persistSession:true, autoRefreshToken:true} });
+
+var state={ email:null, orgName:null, role:null,
+  staff:[], clients:[], shifts:[], punches:[], visits:[], incidents:[], referrals:[], bgchecks:[],
+  providers:[], credentials:[], expiring:[], appointments:[], jobs:[], applicants:[],
+  prescriptions:[], pharmacies:[], vagents:[], vnumbers:[], calls:[], vusage:[], refsources:[], outreach:[] };
+var view="dashboard";
+
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function el(id){return document.getElementById(id);}
+function toast(msg){var t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.remove();},2600);}
+function fmtTime(ts){ if(!ts) return "—"; var d=new Date(ts); return d.toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}); }
+function fmtHM(t){ if(!t) return ""; return t.slice(0,5); }
+function staffName(id){ var s=state.staff.find(function(x){return x.id===id;}); return s?s.name:"—"; }
+function clientName(id){ var c=state.clients.find(function(x){return x.id===id;}); return c?c.name:"—"; }
+function provName(id){ var p=state.providers.find(function(x){return x.id===id;}); return p?p.name:"—"; }
+function pharmName(id){ var p=(state.pharmacies||[]).find(function(x){return x.id===id;}); return p?p.name:"—"; }
+
+/* ---------- AUTH ---------- */
+async function doLogin(email,password){
+  el("loginErr").textContent="";
+  el("loginBtn").disabled=true;
+  var r=await sb.auth.signInWithPassword({email:email,password:password});
+  el("loginBtn").disabled=false;
+  if(r.error){ el("loginErr").textContent=r.error.message; return; }
+  await enterApp();
+}
+async function enterApp(){
+  el("login").style.display="none";
+  el("app").style.display="grid";
+  el("main").innerHTML='<div class="loading">Loading your agency…</div>';
+  await loadAll();
+  render();
+}
+el("loginForm").addEventListener("submit",function(e){e.preventDefault();doLogin(el("email").value.trim(),el("password").value);});
+el("demoBtn").addEventListener("click",function(){el("email").value="ownera@demo.test";el("password").value="DemoPass!234";doLogin("ownera@demo.test","DemoPass!234");});
+el("signout").addEventListener("click",async function(){await sb.auth.signOut();location.reload();});
+el("menuBtn")&&el("menuBtn").addEventListener("click",function(){el("side").classList.toggle("open");});
+
+/* ---------- DATA ---------- */
+async function loadAll(){
+  var sess=await sb.auth.getSession();
+  state.email=sess.data.session?sess.data.session.user.email:null;
+  var q=await Promise.all([
+    sb.from("organizations").select("name").limit(1),
+    sb.from("profiles").select("role,org_id").limit(1),
+    sb.from("staff").select("*").order("name"),
+    sb.from("clients").select("*").order("name"),
+    sb.from("shifts").select("*").order("shift_date"),
+    sb.from("time_punches").select("*").order("clock_in",{ascending:false}),
+    sb.from("evv_visits").select("*").order("visit_date",{ascending:false}),
+    sb.from("incidents").select("*").order("incident_date",{ascending:false}),
+    sb.from("referrals").select("*").order("referral_date",{ascending:false}),
+    sb.from("background_checks").select("*"),
+    sb.from("providers").select("*").order("name"),
+    sb.from("provider_credentials").select("*"),
+    sb.from("expiring_credentials").select("*"),
+    sb.from("appointments").select("*").order("appt_date",{ascending:false}),
+    sb.from("job_postings").select("*").order("created_at"),
+    sb.from("applicants").select("*").order("created_at",{ascending:false}),
+    sb.from("prescriptions").select("*").order("written_date",{ascending:false}),
+    sb.from("pharmacies").select("*").order("name"),
+    sb.from("voice_agents").select("*").order("name"),
+    sb.from("voice_numbers").select("*").order("created_at"),
+    sb.from("calls").select("*").order("started_at",{ascending:false}),
+    sb.from("voice_usage").select("*").order("period",{ascending:false}),
+    sb.from("referral_sources").select("*").order("name"),
+    sb.from("outreach_log").select("*").order("contact_date",{ascending:false})
+  ]);
+  state.orgName = q[0].data&&q[0].data[0]?q[0].data[0].name:"Your Agency";
+  state.role = q[1].data&&q[1].data[0]?q[1].data[0].role:"staff";
+  state.staff=q[2].data||[]; state.clients=q[3].data||[]; state.shifts=q[4].data||[];
+  state.punches=q[5].data||[]; state.visits=q[6].data||[]; state.incidents=q[7].data||[];
+  state.referrals=q[8].data||[]; state.bgchecks=q[9].data||[];
+  state.providers=q[10].data||[]; state.credentials=q[11].data||[]; state.expiring=q[12].data||[];
+  state.appointments=q[13].data||[];
+  state.jobs=q[14].data||[]; state.applicants=q[15].data||[];
+  state.prescriptions=q[16].data||[]; state.pharmacies=q[17].data||[];
+  state.vagents=q[18].data||[]; state.vnumbers=q[19].data||[]; state.calls=q[20].data||[]; state.vusage=q[21].data||[];
+  state.refsources=q[22].data||[]; state.outreach=q[23].data||[];
+}
+async function reload(tables){
+  var map={staff:["staff","name",true],clients:["clients","name",true],shifts:["shifts","shift_date",true],
+    punches:["time_punches","clock_in",false],visits:["evv_visits","visit_date",false],
+    incidents:["incidents","incident_date",false],referrals:["referrals","referral_date",false],bgchecks:["background_checks",null,true],providers:["providers","name",true],appointments:["appointments","appt_date",false],jobs:["job_postings","created_at",true],applicants:["applicants","created_at",false],prescriptions:["prescriptions","written_date",false],pharmacies:["pharmacies","name",true],refsources:["referral_sources","name",true],outreach:["outreach_log","contact_date",false],calls:["calls","started_at",false]};
+  for(var i=0;i<tables.length;i++){
+    var key=tables[i], cfg=map[key]; var query=sb.from(cfg[0]).select("*");
+    if(cfg[1]) query=query.order(cfg[1],{ascending:cfg[2]});
+    var r=await query; state[key]=r.data||[];
+  }
+}
+function isSup(){ return ["owner","admin","supervisor"].indexOf(state.role)>=0; }
+
+/* ---------- RENDER ---------- */
+function render(){
+  el("whoami").innerHTML=esc(state.orgName)+"<br><span class='gold'>"+esc(state.email||"")+"</span> · "+esc(state.role);
+  [].forEach.call(document.querySelectorAll(".nav[data-view]"),function(n){ n.classList.toggle("active",n.getAttribute("data-view")===view); });
+  var m=el("main"); var v=views[view]; m.innerHTML = v?v():"<div class='empty'>Coming soon.</div>";
+  el("side").classList.remove("open");
+  wire();
+}
+[].forEach.call(document.querySelectorAll(".nav[data-view]"),function(n){ n.addEventListener("click",function(){ view=n.getAttribute("data-view"); render(); }); });
+
+var views={
+  dashboard:function(){
+    var onShift=state.punches.filter(function(p){return !p.clock_out;}).length;
+    var openRef=state.referrals.filter(function(r){return r.status==="New"||r.status==="Screening";}).length;
+    var openInc=state.incidents.filter(function(i){return i.status!=="closed";}).length;
+    var imm=state.incidents.filter(function(i){return i.priority==="Immediate"&&i.status!=="closed";}).length;
+    return "<h1 class='h1'>Dashboard</h1><p class='sub'>Live from your agency — "+esc(state.orgName)+"</p>"+
+     "<div class='tiles'>"+
+     tile("On shift now",onShift,onShift>0)+tile("Active staff",state.staff.filter(function(s){return s.active;}).length)+
+     tile("Individuals",state.clients.length)+tile("Open referrals",openRef)+
+     tile("Open incidents",openInc)+tile("Immediate flags",imm,imm>0)+
+     "</div>"+
+     "<div class='panel-box'><h3 style='margin:14px 2px 2px'>Who's on shift</h3><table><thead><tr><th>Staff</th><th>Clocked in</th></tr></thead><tbody>"+
+     (function(){var o=state.punches.filter(function(p){return !p.clock_out;});
+       return o.length?o.map(function(p){return "<tr><td>"+esc(staffName(p.staff_id))+"</td><td class='pill-on'>● "+esc(fmtTime(p.clock_in))+"</td></tr>";}).join(""):"<tr><td colspan='2' class='empty'>No one is clocked in right now.</td></tr>";})()+
+     "</tbody></table></div>";
+  },
+  clock:function(){
+    var rows=state.staff.filter(function(s){return s.active;}).map(function(s){
+      var open=state.punches.find(function(p){return p.staff_id===s.id&&!p.clock_out;});
+      var status=open?"<span class='pill-on'>● On shift since "+esc(fmtTime(open.clock_in))+"</span>":"<span class='pill-off'>○ Off</span>";
+      var btn=open?"<button class='btn sm ghost' data-out='"+s.id+"'>Clock out</button>":"<button class='btn sm' data-in='"+s.id+"'>Clock in</button>";
+      return "<tr><td><strong>"+esc(s.name)+"</strong></td><td class='muted'>"+esc(s.role||"")+"</td><td>"+status+"</td><td class='right'>"+btn+"</td></tr>";
+    }).join("");
+    var today=new Date().toDateString();
+    var tp=state.punches.filter(function(p){return new Date(p.clock_in).toDateString()===today;});
+    return "<h1 class='h1'>Time Clock</h1><p class='sub'>Clock in/out runs live against the backend. Staff enter their 4-digit PIN.</p>"+
+      "<div class='panel-box'><table><thead><tr><th>Staff</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody>"+(rows||"<tr><td colspan='4' class='empty'>No active staff.</td></tr>")+"</tbody></table></div>"+
+      "<h3 style='margin:4px 2px'>Today's punches</h3><div class='panel-box'><table><thead><tr><th>Staff</th><th>In</th><th>Out</th></tr></thead><tbody>"+
+      (tp.length?tp.map(function(p){return "<tr><td>"+esc(staffName(p.staff_id))+"</td><td>"+esc(fmtTime(p.clock_in))+"</td><td>"+(p.clock_out?esc(fmtTime(p.clock_out)):"<span class='pill-on'>on shift</span>")+"</td></tr>";}).join(""):"<tr><td colspan='3' class='empty'>No punches today yet.</td></tr>")+
+      "</tbody></table></div>";
+  },
+  team:function(){
+    return "<h1 class='h1'>Team</h1><p class='sub'>"+state.staff.length+" staff on record</p><div class='panel-box'><table><thead><tr><th>Name</th><th>Role</th><th>Status</th></tr></thead><tbody>"+
+      (state.staff.length?state.staff.map(function(s){return "<tr><td><strong>"+esc(s.name)+"</strong></td><td>"+esc(s.role||"—")+"</td><td>"+(s.active?"<span class='pill-on'>● Active</span>":"<span class='pill-off'>○ Inactive</span>")+"</td></tr>";}).join(""):"<tr><td colspan='3' class='empty'>No staff yet.</td></tr>")+
+      "</tbody></table></div>";
+  },
+  scheduling:function(){
+    return "<h1 class='h1'>Scheduling</h1><p class='sub'>Upcoming shifts</p><div class='panel-box'><table><thead><tr><th>Date</th><th>Staff</th><th>Time</th><th>Note</th></tr></thead><tbody>"+
+      (state.shifts.length?state.shifts.map(function(s){return "<tr><td>"+esc(s.shift_date)+"</td><td>"+esc(staffName(s.staff_id))+"</td><td>"+esc(fmtHM(s.start_time))+"–"+esc(fmtHM(s.end_time))+"</td><td class='muted'>"+esc(s.note||"")+"</td></tr>";}).join(""):"<tr><td colspan='4' class='empty'>No shifts scheduled.</td></tr>")+
+      "</tbody></table></div>";
+  },
+  evv:function(){
+    return "<h1 class='h1'>EVV Visits</h1><p class='sub'>Electronic visit verification · units auto-computed (15-min)</p><div class='panel-box'><table><thead><tr><th>Date</th><th>Staff</th><th>Individual</th><th>Service</th><th>Units</th><th>Status</th>"+(isSup()?"<th></th>":"")+"</tr></thead><tbody>"+
+      (state.visits.length?state.visits.map(function(v){
+        var sc=v.status==="approved"?"pill-on":v.status==="rejected"?"pill-red":"pill-amber";
+        var act=(isSup()&&v.status==="pending")?"<td class='right'><button class='btn sm' data-approve='"+v.id+"'>Approve</button> <button class='btn sm ghost' data-reject='"+v.id+"'>Reject</button></td>":(isSup()?"<td></td>":"");
+        return "<tr><td>"+esc(v.visit_date)+"</td><td>"+esc(staffName(v.staff_id))+"</td><td>"+esc(clientName(v.client_id))+"</td><td>"+esc(v.service||"")+"</td><td>"+esc(v.units)+"</td><td class='"+sc+"'>● "+esc(v.status)+"</td>"+act+"</tr>";
+      }).join(""):"<tr><td colspan='7' class='empty'>No visits logged.</td></tr>")+
+      "</tbody></table></div>";
+  },
+  incidents:function(){
+    return "<h1 class='h1'>Incidents</h1><p class='sub'>Priority auto-flags Immediate for emergencies, elopement, restraint, allegations, death</p>"+
+      "<div class='row' style='margin-bottom:12px'><button class='btn' id='newInc'>+ New incident</button>"+
+      "<a class='btn ghost sm' href='https://dbhdd.georgia.gov/' target='_blank' rel='noopener'>Open IMAGE / IDD Connects ↗</a>"+
+      "<a class='btn ghost sm' href='https://www.georgiacollaborative.com' target='_blank' rel='noopener'>Georgia Collaborative ↗</a></div>"+
+      "<div class='panel-box'><table><thead><tr><th>Date</th><th>Individual</th><th>Category</th><th>Priority</th><th>Severity</th><th>Status</th><th></th></tr></thead><tbody>"+
+      (state.incidents.length?state.incidents.map(function(i){
+        var pc=i.priority==="Immediate"?"pill-red":"pill-blue";
+        var act=(isSup()&&i.status!=="closed")?"<td class='right'><button class='btn sm ghost' data-close='"+i.id+"'>Close</button></td>":"<td></td>";
+        return "<tr><td>"+esc(i.incident_date)+"</td><td>"+esc(clientName(i.client_id))+"</td><td>"+esc(i.category||"")+"</td><td class='"+pc+"'>● "+esc(i.priority)+"</td><td>"+esc(i.severity||"")+"</td><td>"+esc(i.status)+"</td>"+act+"</tr>";
+      }).join(""):"<tr><td colspan='7' class='empty'>No incidents reported.</td></tr>")+
+      "</tbody></table></div>";
+  },
+  referrals:function(){
+    var c=function(st){return state.referrals.filter(function(r){return r.status===st;}).length;};
+    return "<h1 class='h1'>Referrals</h1><p class='sub'>Intake pipeline</p>"+
+      "<div class='tiles'>"+tile("New",c("New"))+tile("Screening",c("Screening"))+tile("Accepted",c("Accepted"))+tile("Total",state.referrals.length)+"</div>"+
+      "<div class='panel-box'><table><thead><tr><th>Date</th><th>Name</th><th>Source</th><th>Service</th><th>County</th><th>Status</th><th></th></tr></thead><tbody>"+
+      (state.referrals.length?state.referrals.map(function(r){
+        var sc=r.status==="Accepted"?"pill-on":r.status==="Declined"?"pill-red":r.status==="Screening"?"pill-amber":"pill-blue";
+        var next=r.status==="New"?"Screening":r.status==="Screening"?"Accepted":"";
+        var act=(r.status!=="Accepted"&&r.status!=="Declined")?"<td class='right'><button class='btn sm' data-adv='"+r.id+"' data-next='"+next+"'>→ "+next+"</button> <button class='btn sm ghost' data-dec='"+r.id+"'>Decline</button></td>":"<td></td>";
+        return "<tr><td>"+esc(r.referral_date)+"</td><td><strong>"+esc(r.name)+"</strong></td><td>"+esc(r.source||"")+"</td><td>"+esc(r.service||"")+"</td><td>"+esc(r.county||"")+"</td><td class='"+sc+"'>● "+esc(r.status)+"</td>"+act+"</tr>";
+      }).join(""):"<tr><td colspan='7' class='empty'>No referrals yet.</td></tr>")+
+      "</tbody></table></div>";
+  },
+  bgcheck:function(){
+    var STAGES=["Not started","CheckPT registered","Idemia fingerprint scheduled","Fingerprinted","Cleared"];
+    return "<h1 class='h1'>Background Checks</h1><p class='sub'>CheckPT + Idemia/IdentoGO fingerprinting</p>"+
+      "<div class='row' style='margin-bottom:12px'><a class='btn ghost sm' href='https://www.identogo.com' target='_blank' rel='noopener'>IdentoGO ↗</a></div>"+
+      "<div class='panel-box'><table><thead><tr><th>Staff</th><th>Stage</th><th>Idemia acct</th><th>Cleared</th></tr></thead><tbody>"+
+      (state.bgchecks.length?state.bgchecks.map(function(b){
+        var sc=b.stage>=4?"pill-on":b.stage===0?"pill-off":"pill-amber";
+        return "<tr><td>"+esc(staffName(b.staff_id))+"</td><td class='"+sc+"'>● "+esc(STAGES[b.stage]||STAGES[0])+"</td><td class='muted'>"+esc(b.idemia_account||"—")+"</td><td>"+esc(b.cleared_date||"—")+"</td></tr>";
+      }).join(""):"<tr><td colspan='4' class='empty'>No background checks on file.</td></tr>")+
+      "</tbody></table></div>";
+  },
+  verification:function(){
+    var creds=state.credentials||[]; var exp=state.expiring||[]; var provs=state.providers||[];
+    var rows=provs.map(function(p){
+      var pc=creds.filter(function(c){return c.provider_id===p.id;});
+      var verified=pc.filter(function(c){return c.verification_status==="verified";}).length;
+      var rs=p.caresource_roster_status||"not_submitted";
+      var rsc=rs==="approved"?"pill-on":rs==="denied"?"pill-red":rs==="submitted"?"pill-amber":"pill-off";
+      var sc=p.status==="credentialed"?"pill-on":p.status==="inactive"?"pill-off":"pill-amber";
+      return "<tr><td><strong>"+esc(p.name)+"</strong><br><span class='muted'>"+esc(p.provider_type||"")+" · "+esc(p.specialty||"")+"</span></td><td class='"+sc+"'>● "+esc(p.status)+"</td><td>"+verified+"/"+pc.length+" verified</td><td class='"+rsc+"'>● "+esc(rs.replace("_"," "))+"</td></tr>";
+    }).join("");
+    var credRows=creds.map(function(c){
+      var p=provs.find(function(x){return x.id===c.provider_id;});
+      var vc=(c.verification_status==="verified")?"pill-on":(c.verification_status==="pending")?"pill-amber":"pill-red";
+      return "<tr><td>"+esc(p?p.name:"—")+"</td><td>"+esc(c.cred_type||"")+"</td><td class='muted'>"+esc(c.identifier||"—")+"</td><td>"+esc(c.expiration_date||"—")+"</td><td class='"+vc+"'>● "+esc(c.verification_status)+"</td></tr>";
+    }).join("");
+    return "<h1 class='h1'>Staff Verification</h1><p class='sub'>Provider credentialing for the CareSource telehealth &amp; behavioral-health roster — human signs off</p>"+
+      "<div class='row' style='margin-bottom:12px'><button class='btn' id='newProv'>+ Add provider</button></div>"+
+      "<div class='tiles'>"+tile("Providers",provs.length)+tile("Credentialed",provs.filter(function(p){return p.status==="credentialed";}).length)+tile("On CareSource roster",provs.filter(function(p){return p.caresource_roster_status==="approved";}).length)+tile("Expiring ≤60d",exp.length,exp.length>0)+"</div>"+
+      (exp.length?"<div class='panel-box' style='border-color:var(--amber)'><h3 style='margin:12px 2px 2px;color:var(--amber)'>⚠ Expiring soon</h3><table><thead><tr><th>Provider</th><th>Credential</th><th>Expires</th><th>Days left</th></tr></thead><tbody>"+exp.map(function(e){return "<tr><td>"+esc(e.provider_name)+"</td><td>"+esc(e.cred_type||"")+"</td><td>"+esc(e.expiration_date)+"</td><td class='pill-red'>"+esc(e.days_left)+"</td></tr>";}).join("")+"</tbody></table></div>":"")+
+      "<h3 style='margin:4px 2px'>Providers</h3><div class='panel-box'><table><thead><tr><th>Provider</th><th>Status</th><th>Credentials</th><th>CareSource roster</th></tr></thead><tbody>"+(rows||"<tr><td colspan='4' class='empty'>No providers yet.</td></tr>")+"</tbody></table></div>"+
+      "<h3 style='margin:4px 2px'>Credential detail</h3><div class='panel-box'><table><thead><tr><th>Provider</th><th>Type</th><th>ID / License</th><th>Expires</th><th>Verification</th></tr></thead><tbody>"+(credRows||"<tr><td colspan='5' class='empty'>No credentials on file.</td></tr>")+"</tbody></table></div>";
+  },
+  appointments:function(){
+    var ap=state.appointments||[];
+    var up=ap.filter(function(a){return a.status==="scheduled";});
+    var provName=function(id){var p=(state.providers||[]).find(function(x){return x.id===id;});return p?p.name:"—";};
+    var mod=function(m){return m==="video"?"📹 Video":m==="phone"?"📞 Phone":"In person";};
+    return "<h1 class='h1'>Appointments</h1><p class='sub'>Telehealth &amp; behavioral-health sessions · provider and individual</p>"+
+      "<div class='row' style='margin-bottom:12px'><button class='btn' id='newAppt'>+ Schedule appointment</button></div>"+
+      "<div class='tiles'>"+tile("Scheduled",up.length,up.length>0)+tile("Completed",ap.filter(function(a){return a.status==="completed";}).length)+tile("Total",ap.length)+"</div>"+
+      "<div class='panel-box'><table><thead><tr><th>Date</th><th>Time</th><th>Provider</th><th>Individual</th><th>Service line</th><th>Modality</th><th>Status</th><th></th></tr></thead><tbody>"+
+      (ap.length?ap.map(function(a){
+        var sc=a.status==="completed"?"pill-on":(a.status==="cancelled"||a.status==="no_show")?"pill-red":"pill-amber";
+        var join=(a.status==="scheduled"&&a.modality==="video")?"<a class='btn sm' href='https://meet.jit.si/EDuVerseTeleHealth-"+a.id+"' target='_blank' rel='noopener'>Join video ↗</a>":"";
+        return "<tr><td>"+esc(a.appt_date)+"</td><td>"+esc(fmtHM(a.start_time))+"</td><td>"+esc(provName(a.provider_id))+"</td><td>"+esc(clientName(a.client_id))+"</td><td>"+esc(a.service_line||"")+"</td><td class='muted'>"+esc(mod(a.modality))+"</td><td class='"+sc+"'>● "+esc(a.status.replace("_"," "))+"</td><td class='right'>"+join+"</td></tr>";
+      }).join(""):"<tr><td colspan='8' class='empty'>No appointments scheduled.</td></tr>")+
+      "</tbody></table></div>";
+  },
+  recruiting:function(){
+    var jobs=state.jobs||[]; var apps=state.applicants||[];
+    var jobTitle=function(id){var j=jobs.find(function(x){return x.id===id;});return j?j.title:"—";};
+    var openJobs=jobs.filter(function(j){return j.status==="open";}).length;
+    var hired=apps.filter(function(a){return a.status==="Hired";}).length;
+    var NEXT={New:"Screening",Screening:"Interview",Interview:"Offer",Offer:"Hired"};
+    return "<h1 class='h1'>Recruiting</h1><p class='sub'>Post roles and move candidates through the pipeline — your office that never sleeps</p>"+
+      "<div class='row' style='margin-bottom:12px'><button class='btn' id='newJob'>+ Post job</button> <button class='btn ghost' id='newAppl'>+ Add candidate</button></div>"+
+      "<div class='tiles'>"+tile("Open roles",openJobs,openJobs>0)+tile("Candidates",apps.length)+tile("Hired",hired)+"</div>"+
+      "<h3 style='margin:4px 2px'>Open roles</h3><div class='panel-box'><table><thead><tr><th>Title</th><th>Role</th><th>Type</th><th>Location</th><th>Candidates</th><th>Status</th></tr></thead><tbody>"+
+      (jobs.length?jobs.map(function(j){
+        var cnt=apps.filter(function(a){return a.job_id===j.id;}).length;
+        var sc=j.status==="open"?"pill-on":"pill-off";
+        return "<tr><td><strong>"+esc(j.title)+"</strong></td><td>"+esc(j.role_type||"")+"</td><td class='muted'>"+esc(j.employment_type||"")+(j.remote?" · remote":"")+"</td><td>"+esc(j.location||"")+"</td><td>"+cnt+"</td><td class='"+sc+"'>● "+esc(j.status)+"</td></tr>";
+      }).join(""):"<tr><td colspan='6' class='empty'>No roles posted yet.</td></tr>")+
+      "</tbody></table></div>"+
+      "<h3 style='margin:4px 2px'>Candidate pipeline</h3><div class='panel-box'><table><thead><tr><th>Name</th><th>Role</th><th>Source</th><th>Status</th><th></th></tr></thead><tbody>"+
+      (apps.length?apps.map(function(a){
+        var sc=a.status==="Hired"?"pill-on":a.status==="Declined"?"pill-red":(a.status==="Offer"||a.status==="Interview")?"pill-blue":"pill-amber";
+        var next=NEXT[a.status];
+        var act=(next)?"<td class='right'><button class='btn sm' data-aadv='"+a.id+"' data-next='"+next+"'>→ "+next+"</button> <button class='btn sm ghost' data-adec='"+a.id+"'>Decline</button></td>":"<td></td>";
+        return "<tr><td><strong>"+esc(a.name)+"</strong></td><td class='muted'>"+esc(jobTitle(a.job_id))+"</td><td>"+esc(a.source||"")+"</td><td class='"+sc+"'>● "+esc(a.status)+"</td>"+act+"</tr>";
+      }).join(""):"<tr><td colspan='5' class='empty'>No candidates yet.</td></tr>")+
+      "</tbody></table></div>";
+  },
+  pharmacy:function(){
+    var rx=state.prescriptions||[];
+    var c=function(st){return rx.filter(function(x){return x.status===st;}).length;};
+    return "<h1 class='h1'>Pharmacy</h1><p class='sub'>E-prescribing — providers order scripts here; sending to a pharmacy uses a certified e-prescribe connection (DoseSpot / Surescripts), and controlled meds need DEA EPCS</p>"+
+      "<div class='row' style='margin-bottom:12px'><button class='btn' id='newRx'>+ New prescription</button> <button class='btn ghost' id='newPharm'>+ Add pharmacy</button></div>"+
+      "<div class='tiles'>"+tile("Draft",c("draft"),c("draft")>0)+tile("Sent",c("sent"))+tile("Filled",c("filled"))+tile("Total",rx.length)+"</div>"+
+      "<div class='panel-box'><table><thead><tr><th>Written</th><th>Individual</th><th>Prescriber</th><th>Medication</th><th>Sig</th><th>Qty</th><th>Refills</th><th>Pharmacy</th><th>Status</th><th></th></tr></thead><tbody>"+
+      (rx.length?rx.map(function(x){
+        var sc=x.status==="filled"?"pill-on":(x.status==="cancelled"||x.status==="error")?"pill-red":x.status==="sent"?"pill-blue":"pill-amber";
+        var med=esc(x.medication)+(x.strength?" "+esc(x.strength):"")+(x.form?" "+esc(x.form):"")+(x.is_controlled?" <span class='pill-red'>℞C"+esc(x.dea_schedule||"")+"</span>":"");
+        var act=x.status==="draft"?"<button class='btn sm' data-rxsend='"+x.id+"'>Send</button>":x.status==="sent"?"<button class='btn sm ghost' data-rxfill='"+x.id+"'>Mark filled</button>":"";
+        return "<tr><td>"+esc(x.written_date)+"</td><td>"+esc(clientName(x.client_id))+"</td><td>"+esc(provName(x.provider_id))+"</td><td>"+med+"</td><td class='muted'>"+esc(x.sig||"")+"</td><td>"+esc(x.quantity||"")+"</td><td>"+esc(x.refills)+"</td><td>"+esc(pharmName(x.pharmacy_id))+"</td><td class='"+sc+"'>● "+esc((x.status||"").replace('_',' '))+"</td><td class='right'>"+act+"</td></tr>";
+      }).join(""):"<tr><td colspan='10' class='empty'>No prescriptions yet.</td></tr>")+
+      "</tbody></table></div>"+
+      "<h3 style='margin:4px 2px'>Pharmacies</h3><div class='panel-box'><table><thead><tr><th>Name</th><th>NCPDP</th><th>Phone</th><th>Address</th></tr></thead><tbody>"+
+      ((state.pharmacies||[]).length?state.pharmacies.map(function(p){return "<tr><td><strong>"+esc(p.name)+"</strong></td><td class='muted'>"+esc(p.ncpdp_id||'—')+"</td><td>"+esc(p.phone||'—')+"</td><td class='muted'>"+esc(p.address||'—')+"</td></tr>";}).join(""):"<tr><td colspan='4' class='empty'>No pharmacies yet.</td></tr>")+
+      "</tbody></table></div>";
+  },
+  marketing:function(){
+    var src=state.refsources||[]; var out=state.outreach||[];
+    var srcName=function(id){var s=src.find(function(x){return x.id===id;});return s?s.name:"—";};
+    var active=src.filter(function(s){return s.status==="active"||s.status==="engaged";}).length;
+    return "<h1 class='h1'>Marketing</h1><p class='sub'>Referral sources — case managers, hospitals, DBHDD — and your outreach to drive NOW/COMP waiver referrals</p>"+
+      "<div class='row' style='margin-bottom:12px'><button class='btn' id='newSource'>+ Add referral source</button> <button class='btn ghost' id='logOut'>+ Log outreach</button></div>"+
+      "<div class='tiles'>"+tile("Sources",src.length)+tile("Active",active,active>0)+tile("Outreach touches",out.length)+"</div>"+
+      "<h3 style='margin:4px 2px'>Referral sources</h3><div class='panel-box'><table><thead><tr><th>Name</th><th>Type</th><th>Contact</th><th>County</th><th>Status</th><th>Last contacted</th></tr></thead><tbody>"+
+      (src.length?src.map(function(s){
+        var sc=(s.status==="active"||s.status==="engaged")?"pill-on":s.status==="declined"?"pill-red":"pill-amber";
+        return "<tr><td><strong>"+esc(s.name)+"</strong></td><td>"+esc(s.source_type||"")+"</td><td class='muted'>"+esc(s.contact_name||"—")+(s.phone?" · "+esc(s.phone):"")+"</td><td>"+esc(s.county||"")+"</td><td class='"+sc+"'>● "+esc(s.status||"prospect")+"</td><td class='muted'>"+esc(s.last_contacted||"—")+"</td></tr>";
+      }).join(""):"<tr><td colspan='6' class='empty'>No referral sources yet.</td></tr>")+
+      "</tbody></table></div>"+
+      "<h3 style='margin:4px 2px'>Outreach log</h3><div class='panel-box'><table><thead><tr><th>Date</th><th>Source</th><th>Channel</th><th>Summary</th><th>Outcome</th></tr></thead><tbody>"+
+      (out.length?out.map(function(o){return "<tr><td>"+esc(o.contact_date||"")+"</td><td>"+esc(srcName(o.source_id))+"</td><td>"+esc(o.channel||"")+"</td><td class='muted'>"+esc(o.summary||"")+"</td><td>"+esc(o.outcome||"")+"</td></tr>";}).join(""):"<tr><td colspan='5' class='empty'>No outreach logged yet.</td></tr>")+
+      "</tbody></table></div>";
+  },
+  royalvoice:function(){
+    var ag=state.vagents||[]; var nums=state.vnumbers||[]; var calls=state.calls||[];
+    var mins=(state.vusage||[]).reduce(function(a,u){return a+Number(u.minutes||0);},0);
+    var agName=function(id){var a=ag.find(function(x){return x.id===id;});return a?a.name:"—";};
+    return "<h1 class='h1'>Royal Voice</h1><p class='sub'>Your concierge phone assistant — the Retell replacement. The data layer is live now; live calls switch on once the phone server (Twilio + keys) is connected.</p>"+
+      "<div class='tiles'>"+tile("Assistants",ag.length)+tile("Numbers",nums.length)+tile("Calls logged",calls.length)+tile("Minutes",Math.round(mins*10)/10)+"</div>"+
+      "<h3 style='margin:4px 2px'>Voice assistants</h3><div class='panel-box'><table><thead><tr><th>Name</th><th>Voice</th><th>Hours</th><th>Transfer to</th><th>Status</th></tr></thead><tbody>"+
+      (ag.length?ag.map(function(a){return "<tr><td><strong>"+esc(a.name)+"</strong><br><span class='muted'>"+esc(a.greeting||"")+"</span></td><td>"+esc(a.voice||"—")+"</td><td class='muted'>"+esc(a.business_hours||"—")+"</td><td class='muted'>"+esc(a.transfer_number||"—")+"</td><td>"+(a.active?"<span class='pill-on'>● Active</span>":"<span class='pill-off'>○ Off</span>")+"</td></tr>";}).join(""):"<tr><td colspan='5' class='empty'>No assistants yet.</td></tr>")+
+      "</tbody></table></div>"+
+      "<h3 style='margin:4px 2px'>Numbers</h3><div class='panel-box'><table><thead><tr><th>Number</th><th>Label</th><th>Assistant</th><th>Status</th></tr></thead><tbody>"+
+      (nums.length?nums.map(function(n){return "<tr><td><strong>"+esc(n.phone_number)+"</strong></td><td class='muted'>"+esc(n.label||"")+"</td><td>"+esc(agName(n.agent_id))+"</td><td>"+(n.active?"<span class='pill-on'>● Active</span>":"<span class='pill-off'>○ Off</span>")+"</td></tr>";}).join(""):"<tr><td colspan='4' class='empty'>No numbers yet.</td></tr>")+
+      "</tbody></table></div>"+
+      "<h3 style='margin:4px 2px'>Recent calls</h3><div class='panel-box'><table><thead><tr><th>When</th><th>Direction</th><th>Caller</th><th>Duration</th><th>Outcome</th></tr></thead><tbody>"+
+      (calls.length?calls.map(function(c){var dir=c.direction==="inbound"?"⬇ In":"⬆ Out";var dur=c.duration_seconds?(Math.round(c.duration_seconds/60*10)/10+"m"):"—";return "<tr><td>"+esc(fmtTime(c.started_at))+"</td><td>"+esc(dir)+"</td><td>"+esc(c.caller||"—")+"</td><td class='muted'>"+esc(dur)+"</td><td>"+esc(c.outcome||c.status||"")+"</td></tr>";}).join(""):"<tr><td colspan='5' class='empty'>No calls logged yet.</td></tr>")+
+      "</tbody></table></div>";
+  }
+};
+function tile(k,v,hot){return "<div class='tile'><div class='k'>"+esc(k)+"</div><div class='v"+(hot?" gold":"")+"'>"+esc(v)+"</div></div>";}
+
+/* ---------- ACTIONS ---------- */
+function wire(){
+  bindAll("[data-in]","data-in",function(id){ pinPrompt("Clock in",async function(pin){ var r=await sb.rpc("clock_in",{p_staff_id:id,p_pin:pin}); return handle(r,"Clocked in",["punches","staff"]); }); });
+  bindAll("[data-out]","data-out",function(id){ pinPrompt("Clock out",async function(pin){ var r=await sb.rpc("clock_out",{p_staff_id:id,p_pin:pin}); return handle(r,"Clocked out",["punches"]); }); });
+  bindAll("[data-approve]","data-approve",async function(id){ var r=await sb.from("evv_visits").update({status:"approved"}).eq("id",id); await handle(r,"Visit approved",["visits"]); });
+  bindAll("[data-reject]","data-reject",async function(id){ var r=await sb.from("evv_visits").update({status:"rejected"}).eq("id",id); await handle(r,"Visit rejected",["visits"]); });
+  bindAll("[data-close]","data-close",async function(id){ var r=await sb.from("incidents").update({status:"closed"}).eq("id",id); await handle(r,"Incident closed",["incidents"]); });
+  bindAll("[data-dec]","data-dec",async function(id){ var r=await sb.from("referrals").update({status:"Declined"}).eq("id",id); await handle(r,"Referral declined",["referrals"]); });
+  [].forEach.call(document.querySelectorAll("[data-adv]"),function(b){ b.addEventListener("click",async function(){ var next=b.getAttribute("data-next"); if(!next) return; var r=await sb.from("referrals").update({status:next}).eq("id",b.getAttribute("data-adv")); await handle(r,"Moved to "+next,["referrals"]); }); });
+  el("newInc")&&el("newInc").addEventListener("click",incidentForm);
+  el("newProv")&&el("newProv").addEventListener("click",providerForm);
+  el("newAppt")&&el("newAppt").addEventListener("click",appointmentForm);
+  el("newJob")&&el("newJob").addEventListener("click",jobForm);
+  el("newAppl")&&el("newAppl").addEventListener("click",applicantForm);
+  [].forEach.call(document.querySelectorAll("[data-aadv]"),function(b){ b.addEventListener("click",async function(){ var next=b.getAttribute("data-next"); var r=await sb.from("applicants").update({status:next}).eq("id",b.getAttribute("data-aadv")); await handle(r,"Moved to "+next,["applicants"]); }); });
+  bindAll("[data-adec]","data-adec",async function(id){ var r=await sb.from("applicants").update({status:"Declined"}).eq("id",id); await handle(r,"Applicant declined",["applicants"]); });
+  el("newRx")&&el("newRx").addEventListener("click",prescriptionForm);
+  el("newPharm")&&el("newPharm").addEventListener("click",pharmacyForm);
+  el("newSource")&&el("newSource").addEventListener("click",refSourceForm);
+  el("logOut")&&el("logOut").addEventListener("click",outreachForm);
+  bindAll("[data-rxsend]","data-rxsend",async function(id){ var r=await sb.from("prescriptions").update({status:"sent",sent_date:new Date().toISOString()}).eq("id",id); await handle(r,"Prescription sent",["prescriptions"]); });
+  bindAll("[data-rxfill]","data-rxfill",async function(id){ var r=await sb.from("prescriptions").update({status:"filled"}).eq("id",id); await handle(r,"Marked filled",["prescriptions"]); });
+}
+function bindAll(sel,attr,fn){ [].forEach.call(document.querySelectorAll(sel),function(b){ b.addEventListener("click",function(){ fn(b.getAttribute(attr)); }); }); }
+async function handle(r,okMsg,reloadKeys){
+  if(r.error){ toast("⚠ "+r.error.message); return false; }
+  if(reloadKeys){ await reload(reloadKeys); render(); }
+  toast(okMsg); return true;
+}
+function pinPrompt(title,cb){
+  var bg=document.createElement("div"); bg.className="modal-bg";
+  bg.innerHTML="<div class='modal'><h3>"+esc(title)+"</h3><div class='field'><label>4-digit PIN</label><input id='pinIn' type='password' inputmode='numeric' maxlength='4' placeholder='••••'></div><div class='err' id='pinErr'></div><div class='row'><button class='btn' id='pinGo'>Confirm</button><button class='btn ghost' id='pinCancel'>Cancel</button></div><p class='muted' style='font-size:12px;margin-top:10px'>Demo PINs — Maya: 1234 · Jamal: 2345</p></div>";
+  document.body.appendChild(bg);
+  var pin=bg.querySelector("#pinIn"); pin.focus();
+  bg.querySelector("#pinCancel").onclick=function(){bg.remove();};
+  bg.querySelector("#pinGo").onclick=async function(){ var ok=await cb(pin.value.trim()); if(ok) bg.remove(); else { bg.querySelector("#pinErr").textContent="Try again."; } };
+  pin.addEventListener("keydown",function(e){if(e.key==="Enter")bg.querySelector("#pinGo").click();});
+}
+function incidentForm(){
+  var CAT=["Injury","Medication Error","Medical Emergency / ER","Hospitalization","Elopement / Missing","Restraint Used","Allegation of Abuse/Neglect","Death","Property / Other"];
+  var SEV=["Minor","Moderate","Serious","Critical"];
+  var opts=state.clients.map(function(c){return "<option value='"+c.id+"'>"+esc(c.name)+"</option>";}).join("");
+  var bg=document.createElement("div"); bg.className="modal-bg";
+  bg.innerHTML="<div class='modal'><h3>New incident</h3>"+
+    "<div class='field'><label>Individual</label><select id='iCl'>"+opts+"</select></div>"+
+    "<div class='field'><label>Category</label><select id='iCat'>"+CAT.map(function(c){return "<option>"+esc(c)+"</option>";}).join("")+"</select></div>"+
+    "<div class='field'><label>Severity</label><select id='iSev'>"+SEV.map(function(s){return "<option>"+esc(s)+"</option>";}).join("")+"</select></div>"+
+    "<div class='field'><label>What happened</label><textarea id='iDesc' rows='3'></textarea></div>"+
+    "<div class='field'><label>Immediate actions taken</label><textarea id='iAct' rows='2'></textarea></div>"+
+    "<div class='err' id='iErr'></div><div class='row'><button class='btn' id='iGo'>Submit</button><button class='btn ghost' id='iCancel'>Cancel</button></div></div>";
+  document.body.appendChild(bg);
+  bg.querySelector("#iCancel").onclick=function(){bg.remove();};
+  bg.querySelector("#iGo").onclick=async function(){
+    var rec={ client_id:bg.querySelector("#iCl").value, incident_date:new Date().toISOString().slice(0,10),
+      category:bg.querySelector("#iCat").value, severity:bg.querySelector("#iSev").value,
+      description:bg.querySelector("#iDesc").value, actions:bg.querySelector("#iAct").value, reporter:state.email, status:"submitted" };
+    var r=await sb.from("incidents").insert(rec);
+    if(r.error){ bg.querySelector("#iErr").textContent=r.error.message; return; }
+    bg.remove(); await reload(["incidents"]); render(); toast("Incident filed");
+  };
+}
+function providerForm(){
+  var TYPES=["MD","DO","NP","PA","Psychiatrist","RN","LCSW","Other"];
+  var bg=document.createElement("div"); bg.className="modal-bg";
+  bg.innerHTML="<div class='modal'><h3>Add provider</h3>"+
+    "<div class='field'><label>Full name</label><input id='pName' placeholder='Dr. Jane Smith'></div>"+
+    "<div class='field'><label>Type</label><select id='pType'>"+TYPES.map(function(t){return "<option>"+esc(t)+"</option>";}).join("")+"</select></div>"+
+    "<div class='field'><label>Specialty</label><input id='pSpec' placeholder='Behavioral Health'></div>"+
+    "<div class='field'><label>NPI</label><input id='pNpi' placeholder='10-digit NPI'></div>"+
+    "<div class='field'><label>Email</label><input id='pEmail' type='email'></div>"+
+    "<div class='field'><label style='text-transform:none'><input id='pTele' type='checkbox' style='width:auto;margin-right:8px'>Telehealth enabled</label></div>"+
+    "<div class='err' id='pErr'></div><div class='row'><button class='btn' id='pGo'>Add provider</button><button class='btn ghost' id='pCancel'>Cancel</button></div></div>";
+  document.body.appendChild(bg);
+  bg.querySelector("#pCancel").onclick=function(){bg.remove();};
+  bg.querySelector("#pGo").onclick=async function(){
+    var name=bg.querySelector("#pName").value.trim();
+    if(!name){ bg.querySelector("#pErr").textContent="Name is required."; return; }
+    var rec={ name:name, provider_type:bg.querySelector("#pType").value,
+      specialty:bg.querySelector("#pSpec").value, npi:bg.querySelector("#pNpi").value,
+      email:bg.querySelector("#pEmail").value, telehealth_enabled:bg.querySelector("#pTele").checked };
+    var r=await sb.from("providers").insert(rec);
+    if(r.error){ bg.querySelector("#pErr").textContent=r.error.message; return; }
+    bg.remove(); await reload(["providers"]); render(); toast("Provider added");
+  };
+}
+function appointmentForm(){
+  var provs=state.providers||[]; var cls=state.clients||[];
+  if(!provs.length){ toast("Add a provider first"); return; }
+  var LINES=["Telehealth","Behavioral Health","Holistic","Women's Health","Men's Health","Nursing"];
+  var pOpts=provs.map(function(p){return "<option value='"+p.id+"'>"+esc(p.name)+"</option>";}).join("");
+  var cOpts=cls.map(function(c){return "<option value='"+c.id+"'>"+esc(c.name)+"</option>";}).join("");
+  var today=new Date().toISOString().slice(0,10);
+  var bg=document.createElement("div"); bg.className="modal-bg";
+  bg.innerHTML="<div class='modal'><h3>Schedule appointment</h3>"+
+    "<div class='field'><label>Provider</label><select id='aProv'>"+pOpts+"</select></div>"+
+    "<div class='field'><label>Individual</label><select id='aCl'>"+cOpts+"</select></div>"+
+    "<div class='field'><label>Service line</label><select id='aLine'>"+LINES.map(function(l){return "<option>"+esc(l)+"</option>";}).join("")+"</select></div>"+
+    "<div class='field'><label>Date</label><input id='aDate' type='date' value='"+today+"'></div>"+
+    "<div class='field'><label>Time</label><input id='aTime' type='time' value='10:00'></div>"+
+    "<div class='field'><label>Modality</label><select id='aMod'><option value='video'>Video</option><option value='phone'>Phone</option><option value='in_person'>In person</option></select></div>"+
+    "<div class='err' id='aErr'></div><div class='row'><button class='btn' id='aGo'>Schedule</button><button class='btn ghost' id='aCancel'>Cancel</button></div></div>";
+  document.body.appendChild(bg);
+  bg.querySelector("#aCancel").onclick=function(){bg.remove();};
+  bg.querySelector("#aGo").onclick=async function(){
+    var rec={ provider_id:bg.querySelector("#aProv").value, client_id:bg.querySelector("#aCl").value,
+      service_line:bg.querySelector("#aLine").value, appt_date:bg.querySelector("#aDate").value,
+      start_time:bg.querySelector("#aTime").value, modality:bg.querySelector("#aMod").value, status:"scheduled" };
+    var r=await sb.from("appointments").insert(rec);
+    if(r.error){ bg.querySelector("#aErr").textContent=r.error.message; return; }
+    bg.remove(); await reload(["appointments"]); render(); toast("Appointment scheduled");
+  };
+}
+function jobForm(){
+  var ROLES=["Caregiver","LPN","RN","CNA","MD","NP","PA","Psychiatrist","Admin","Other"];
+  var TYPES=["Full-time","Part-time","Contract","PRN"];
+  var bg=document.createElement("div"); bg.className="modal-bg";
+  bg.innerHTML="<div class='modal'><h3>Post a job</h3>"+
+    "<div class='field'><label>Title</label><input id='jTitle' placeholder='Direct Support Professional'></div>"+
+    "<div class='field'><label>Role type</label><select id='jRole'>"+ROLES.map(function(r){return "<option>"+esc(r)+"</option>";}).join("")+"</select></div>"+
+    "<div class='field'><label>Employment type</label><select id='jType'>"+TYPES.map(function(t){return "<option>"+esc(t)+"</option>";}).join("")+"</select></div>"+
+    "<div class='field'><label>Location</label><input id='jLoc' placeholder='Gwinnett County, GA'></div>"+
+    "<div class='field'><label style='text-transform:none'><input id='jRemote' type='checkbox' style='width:auto;margin-right:8px'>Remote</label></div>"+
+    "<div class='field'><label>Description</label><textarea id='jDesc' rows='2'></textarea></div>"+
+    "<div class='err' id='jErr'></div><div class='row'><button class='btn' id='jGo'>Post</button><button class='btn ghost' id='jCancel'>Cancel</button></div></div>";
+  document.body.appendChild(bg);
+  bg.querySelector("#jCancel").onclick=function(){bg.remove();};
+  bg.querySelector("#jGo").onclick=async function(){
+    var t=bg.querySelector("#jTitle").value.trim();
+    if(!t){ bg.querySelector("#jErr").textContent="Title is required."; return; }
+    var rec={ title:t, role_type:bg.querySelector("#jRole").value, employment_type:bg.querySelector("#jType").value,
+      location:bg.querySelector("#jLoc").value, remote:bg.querySelector("#jRemote").checked, description:bg.querySelector("#jDesc").value };
+    var r=await sb.from("job_postings").insert(rec);
+    if(r.error){ bg.querySelector("#jErr").textContent=r.error.message; return; }
+    bg.remove(); await reload(["jobs"]); render(); toast("Job posted");
+  };
+}
+function applicantForm(){
+  var jobs=(state.jobs||[]).filter(function(j){return j.status==="open";});
+  if(!jobs.length){ toast("Post a job first"); return; }
+  var SRC=["Indeed","Referral","Global Nurse Link","Website","Other"];
+  var jOpts=jobs.map(function(j){return "<option value='"+j.id+"'>"+esc(j.title)+"</option>";}).join("");
+  var bg=document.createElement("div"); bg.className="modal-bg";
+  bg.innerHTML="<div class='modal'><h3>Add candidate</h3>"+
+    "<div class='field'><label>Name</label><input id='cName'></div>"+
+    "<div class='field'><label>Applying for</label><select id='cJob'>"+jOpts+"</select></div>"+
+    "<div class='field'><label>Email</label><input id='cEmail' type='email'></div>"+
+    "<div class='field'><label>Phone</label><input id='cPhone'></div>"+
+    "<div class='field'><label>Source</label><select id='cSrc'>"+SRC.map(function(s){return "<option>"+esc(s)+"</option>";}).join("")+"</select></div>"+
+    "<div class='err' id='cErr'></div><div class='row'><button class='btn' id='cGo'>Add</button><button class='btn ghost' id='cCancel'>Cancel</button></div></div>";
+  document.body.appendChild(bg);
+  bg.querySelector("#cCancel").onclick=function(){bg.remove();};
+  bg.querySelector("#cGo").onclick=async function(){
+    var n=bg.querySelector("#cName").value.trim();
+    if(!n){ bg.querySelector("#cErr").textContent="Name is required."; return; }
+    var rec={ name:n, job_id:bg.querySelector("#cJob").value, email:bg.querySelector("#cEmail").value,
+      phone:bg.querySelector("#cPhone").value, source:bg.querySelector("#cSrc").value, status:"New" };
+    var r=await sb.from("applicants").insert(rec);
+    if(r.error){ bg.querySelector("#cErr").textContent=r.error.message; return; }
+    bg.remove(); await reload(["applicants"]); render(); toast("Candidate added");
+  };
+}
+
+/* ---------- BOOT ---------- */
+(async function(){
+  var s=await sb.auth.getSession();
+  if(s.data.session){ await enterApp(); }
+})();
+})();
+</script>
+</body>
+</html>
