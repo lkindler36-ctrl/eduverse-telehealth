@@ -20,6 +20,19 @@ function timestamp(value, label) {
   return value;
 }
 
+function nextEventTimestamp(clock, previousAt = null) {
+  const proposed = timestamp(clock(), 'event timestamp');
+  if (previousAt === null) return proposed;
+  const previousMs = Date.parse(timestamp(previousAt, 'previous event timestamp'));
+  const proposedMs = Date.parse(proposed);
+  if (proposedMs > previousMs) return proposed;
+  const adjusted = new Date(previousMs + 1);
+  if (!Number.isFinite(adjusted.getTime())) {
+    throw new Error('Unable to advance event timestamp.');
+  }
+  return adjusted.toISOString();
+}
+
 function snapshot(record) {
   return structuredClone(record);
 }
@@ -99,7 +112,7 @@ export function createFictionalHandoffRegistry({
     if (current.state !== expected) {
       throw new Error('Invalid transition from ' + current.state + '; expected ' + expected + '.');
     }
-    const at = timestamp(clock(), 'event timestamp');
+    const at = nextEventTimestamp(clock, current.events.at(-1)?.at ?? null);
     const next = snapshot(current);
     next.state = state;
     next.events.push({
@@ -136,7 +149,7 @@ export function createFictionalHandoffRegistry({
         }
         return snapshot(prior);
       }
-      const at = timestamp(clock(), 'event timestamp');
+      const at = nextEventTimestamp(clock);
       const rawSequence = store ? store.allocateSequence() : ++serial;
       if (!Number.isSafeInteger(rawSequence) || rawSequence < 1) {
         throw new Error('Invalid task sequence.');
@@ -245,3 +258,4 @@ export function createFictionalHandoffRegistry({
     },
   };
 }
+
