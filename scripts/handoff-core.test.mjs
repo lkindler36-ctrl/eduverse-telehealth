@@ -6,8 +6,13 @@ import { join } from 'node:path';
 import { createFictionalHandoffRegistry } from '../src/lib/eduverse/handoff-core.mjs';
 import { createFictionalJsonFileStore } from '../src/lib/eduverse/handoff-json-file-store.mjs';
 
-const clock = () => '2026-10-18T12:00:00.000Z';
-const create = (options = {}) => createFictionalHandoffRegistry({ clock, ...options });
+function createClock(start = '2026-10-18T12:00:00.000Z') {
+  let tick = Date.parse(start);
+  return () => new Date(tick++).toISOString();
+}
+
+const create = ({ clock = createClock(), ...options } = {}) =>
+  createFictionalHandoffRegistry({ clock, ...options });
 const start = (r, correlationId = 'test-1') => r.receive({
   correlationId, source: 'VBHC', target: 'EDUVERSE_TELEHEALTH', fictional: true,
 });
@@ -63,6 +68,11 @@ test('fictional administrative handoff records an ordered, linked evidence chain
   });
   assert.equal(end.state, 'RECEIPT_EVIDENCE_ATTACHED');
   assert.equal(end.events.length, 7);
+  const eventTimes = end.events.map((event) => Date.parse(event.at));
+  assert.equal(
+    eventTimes.every((value, index) => index === 0 || value > eventTimes[index - 1]),
+    true,
+  );
   assert.equal(end.events.at(-1).evidence.dispatchId, 'dispatch-1');
   assert.equal(end.events.at(-1).evidence.evidenceOrigin, 'CALLER_SUPPLIED_UNVERIFIED');
 });
