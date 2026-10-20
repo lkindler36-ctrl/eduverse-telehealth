@@ -115,6 +115,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute
       <div class="tagline muted">Built by faith.</div>
     </div>
     <div class="nav" data-view="dashboard"><span class="ic">▣</span> Dashboard</div>
+    <div class="nav" data-view="alerts"><span class="ic">⚑</span> Alerts</div>
     <div class="nav" data-view="clock"><span class="ic">◷</span> Time Clock</div>
     <div class="nav" data-view="team"><span class="ic">◉</span> Team</div>
     <div class="nav" data-view="scheduling"><span class="ic">▦</span> Scheduling</div>
@@ -136,6 +137,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute
     <div class="nav" data-view="labs"><span class="ic">⚗</span> Lab System</div>
     <div class="nav" data-view="training"><span class="ic">✎</span> Training Center</div>
     <div class="nav" data-view="claims"><span class="ic">＄</span> Claims / Billing</div>
+    <div class="nav" data-view="superbrain"><span class="ic">✺</span> Superbrain</div>
     <div class="spacer"></div>
     <div class="who" id="whoami"></div>
     <div class="nav" id="signout"><span class="ic">⇦</span> Sign out</div>
@@ -223,7 +225,8 @@ async function loadAll(){
     sb.from("outreach_log").select("*").order("contact_date",{ascending:false}),
     sb.from("lab_orders").select("*").order("ordered_date",{ascending:false}),
     sb.from("trainings").select("*").order("created_at",{ascending:false}),
-    sb.from("claims").select("*").order("claim_date",{ascending:false})
+    sb.from("claims").select("*").order("claim_date",{ascending:false}),
+    sb.from("superbrain").select("*").order("created_at",{ascending:false})
   ]);
   state.orgName = q[0].data&&q[0].data[0]?q[0].data[0].name:"Your Agency";
   state.role = q[1].data&&q[1].data[0]?q[1].data[0].role:"staff";
@@ -237,11 +240,12 @@ async function loadAll(){
   state.vagents=q[18].data||[]; state.vnumbers=q[19].data||[]; state.calls=q[20].data||[]; state.vusage=q[21].data||[];
   state.refsources=q[22].data||[]; state.outreach=q[23].data||[];
   state.labs=q[24].data||[]; state.trainings=q[25].data||[]; state.claims=q[26].data||[];
+  state.superbrain=q[27].data||[];
 }
 async function reload(tables){
   var map={staff:["staff","name",true],clients:["clients","name",true],shifts:["shifts","shift_date",true],
     punches:["time_punches","clock_in",false],visits:["evv_visits","visit_date",false],
-    incidents:["incidents","incident_date",false],referrals:["referrals","referral_date",false],bgchecks:["background_checks",null,true],providers:["providers","name",true],appointments:["appointments","appt_date",false],jobs:["job_postings","created_at",true],applicants:["applicants","created_at",false],prescriptions:["prescriptions","written_date",false],pharmacies:["pharmacies","name",true],refsources:["referral_sources","name",true],outreach:["outreach_log","contact_date",false],calls:["calls","started_at",false],labs:["lab_orders","ordered_date",false],trainings:["trainings","created_at",false],claims:["claims","claim_date",false]};
+    incidents:["incidents","incident_date",false],referrals:["referrals","referral_date",false],bgchecks:["background_checks",null,true],providers:["providers","name",true],appointments:["appointments","appt_date",false],jobs:["job_postings","created_at",true],applicants:["applicants","created_at",false],prescriptions:["prescriptions","written_date",false],pharmacies:["pharmacies","name",true],refsources:["referral_sources","name",true],outreach:["outreach_log","contact_date",false],calls:["calls","started_at",false],labs:["lab_orders","ordered_date",false],trainings:["trainings","created_at",false],claims:["claims","claim_date",false],superbrain:["superbrain","created_at",false]};
   for(var i=0;i<tables.length;i++){
     var key=tables[i], cfg=map[key]; var query=sb.from(cfg[0]).select("*");
     if(cfg[1]) query=query.order(cfg[1],{ascending:cfg[2]});
@@ -498,7 +502,7 @@ var views={
       "<div class='row' style='margin-bottom:12px'><button class='btn' id='newTraining'>+ Assign training</button></div>"+
       "<div class='tiles'>"+tile("Completed",c("completed"))+tile("In progress",c("in_progress"))+tile("Assigned",c("assigned"),c("assigned")>0)+tile("Total",ts.length)+"</div>"+
       "<div class='panel-box'><table><thead><tr><th>Staff</th><th>Training</th><th>Category</th><th>Status</th><th>Due</th><th></th></tr></thead><tbody>"+
-      (ts.length?ts.map(function(x){var sc=x.status==="completed"?"pill-on":x.status==="overdue"?"pill-red":x.status==="in_progress"?"pill-blue":"pill-amber";var act=x.status!=="completed"?"<button class='btn sm' data-traindone='"+x.id+"'>Mark complete</button>":"";return "<tr><td>"+esc(staffName(x.staff_id))+"</td><td><strong>"+esc(x.title)+"</strong></td><td class='muted'>"+esc(x.category||'')+"</td><td class='"+sc+"'>● "+esc((x.status||'').replace('_',' '))+"</td><td class='muted'>"+esc(x.due_date||'—')+"</td><td class='right'>"+act+"</td></tr>";}).join(""):"<tr><td colspan='6' class='empty'>No trainings assigned yet.</td></tr>")+
+      (ts.length?ts.map(function(x){var sc=x.status==="completed"?"pill-on":x.status==="overdue"?"pill-red":x.status==="in_progress"?"pill-blue":"pill-amber";var act=x.status!=="completed"?"<button class='btn sm' data-traindone='"+x.id+"'>Mark complete</button>":"<button class='btn sm ghost' data-cert='"+x.id+"'>📜 Certificate</button>";return "<tr><td>"+esc(staffName(x.staff_id))+"</td><td><strong>"+esc(x.title)+"</strong></td><td class='muted'>"+esc(x.category||'')+"</td><td class='"+sc+"'>● "+esc((x.status||'').replace('_',' '))+"</td><td class='muted'>"+esc(x.due_date||'—')+"</td><td class='right'>"+act+"</td></tr>";}).join(""):"<tr><td colspan='6' class='empty'>No trainings assigned yet.</td></tr>")+
       "</tbody></table></div>";
   },
   claims:function(){
@@ -510,6 +514,37 @@ var views={
       "<div class='panel-box'><table><thead><tr><th>Date</th><th>Individual</th><th>Service line</th><th>Payer</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody>"+
       (cl.length?cl.map(function(x){var sc=x.status==="paid"?"pill-on":x.status==="denied"?"pill-red":x.status==="submitted"?"pill-blue":"pill-amber";var act=(x.status==="submitted")?"<button class='btn sm' data-claimpaid='"+x.id+"'>Mark paid</button>":"";return "<tr><td>"+esc(x.claim_date)+"</td><td>"+esc(clientName(x.client_id))+"</td><td>"+esc(x.service_line||'')+"</td><td class='muted'>"+esc(x.payer||'')+"</td><td>$"+esc(x.amount||0)+"</td><td class='"+sc+"'>● "+esc(x.status)+"</td><td class='right'>"+act+"</td></tr>";}).join(""):"<tr><td colspan='7' class='empty'>No claims yet.</td></tr>")+
       "</tbody></table></div>";
+  },
+  alerts:function(){
+    var inc=(state.incidents||[]).filter(function(i){return i.status!=="closed";});
+    var imm=inc.filter(function(i){return i.priority==="Immediate";});
+    var exp=(state.expiring||[]); var today=new Date().toISOString().slice(0,10);
+    var newRef=(state.referrals||[]).filter(function(r){return r.status==="New"||r.status==="Screening";});
+    var odTrain=(state.trainings||[]).filter(function(t){return t.status==="overdue"||(t.due_date&&t.status!=="completed"&&t.due_date<today);});
+    var rows=[];
+    imm.forEach(function(i){rows.push(["pill-red","Immediate incident",esc(i.category||'Incident')+" — "+esc(clientName(i.client_id)),esc(i.incident_date||'')]);});
+    exp.forEach(function(e){rows.push(["pill-amber","Credential expiring",esc(e.provider_name)+" · "+esc(e.cred_type||'')+" ("+esc(e.days_left)+"d)",esc(e.expiration_date||'')]);});
+    newRef.forEach(function(r){rows.push(["pill-blue","New referral",esc(r.client_name||r.referral_source||r.source||'New referral'),esc(r.referral_date||'')]);});
+    inc.filter(function(i){return i.priority!=="Immediate";}).forEach(function(i){rows.push(["pill-amber","Open incident",esc(i.category||'Incident')+" — "+esc(clientName(i.client_id)),esc(i.incident_date||'')]);});
+    odTrain.forEach(function(t){rows.push(["pill-red","Overdue training",esc(staffName(t.staff_id))+" · "+esc(t.title),esc(t.due_date||'')]);});
+    return "<h1 class='h1'>Alerts</h1><p class='sub'>What needs your attention — pulled live from across the platform</p>"+
+      "<div class='tiles'>"+tile("Needs attention",rows.length,rows.length>0)+tile("Immediate",imm.length,imm.length>0)+tile("Credentials expiring",exp.length,exp.length>0)+tile("New referrals",newRef.length)+"</div>"+
+      "<div class='panel-box'><table><thead><tr><th></th><th>Type</th><th>Detail</th><th>Date</th></tr></thead><tbody>"+
+      (rows.length?rows.map(function(r){return "<tr><td class='"+r[0]+"'>●</td><td><strong>"+r[1]+"</strong></td><td>"+r[2]+"</td><td class='muted'>"+r[3]+"</td></tr>";}).join(""):"<tr><td colspan='4' class='empty'>All clear — nothing needs your attention right now. ✓</td></tr>")+
+      "</tbody></table></div>";
+  },
+  superbrain:function(){
+    var sbk=state.superbrain||[]; var cats={};
+    sbk.forEach(function(e){var c=e.category||"General"; (cats[c]=cats[c]||[]).push(e);});
+    var body=Object.keys(cats).map(function(c){
+      return "<h3 style='margin:14px 2px 4px'>"+esc(c)+"</h3><div class='panel-box'><table><tbody>"+
+        cats[c].map(function(e){return "<tr><td><strong>"+esc(e.topic)+"</strong><br><span class='muted'>"+esc(e.content)+"</span><br><span class='muted' style='font-size:11px'>— "+esc(e.author||'team')+"</span></td></tr>";}).join("")+
+        "</tbody></table></div>";
+    }).join("");
+    return "<h1 class='h1'>Superbrain</h1><p class='sub'>The shared brain — one source of truth your assistants read first and update last, so everyone works from the same facts and your standards.</p>"+
+      "<div class='row' style='margin-bottom:12px'><button class='btn' id='newSbk'>+ Add knowledge</button></div>"+
+      "<div class='tiles'>"+tile("Entries",sbk.length,sbk.length>0)+tile("Categories",Object.keys(cats).length)+"</div>"+
+      (sbk.length?body:"<div class='panel-box'><div class='empty'>No shared knowledge yet — add the first entry.</div></div>");
   }
 };
 function tile(k,v,hot){return "<div class='tile'><div class='k'>"+esc(k)+"</div><div class='v"+(hot?" gold":"")+"'>"+esc(v)+"</div></div>";}
@@ -556,6 +591,8 @@ function wire(){
   bindAll("[data-traindone]","data-traindone",async function(id){ var r=await sb.from("trainings").update({status:"completed",completed_date:new Date().toISOString().slice(0,10)}).eq("id",id); await handle(r,"Training completed",["trainings"]); });
   bindAll("[data-claimpaid]","data-claimpaid",async function(id){ var r=await sb.from("claims").update({status:"paid"}).eq("id",id); await handle(r,"Claim marked paid",["claims"]); });
   bindAll("[data-setzoom]","data-setzoom",async function(id){ var link=prompt("Paste the Zoom for Healthcare meeting link for this visit:"); if(link===null) return; link=(link||"").trim(); if(link&&!/^https?:\/\//i.test(link)){ toast("Paste the full Zoom link (https://...)"); return; } var r=await sb.from("appointments").update({zoom_link:link||null}).eq("id",id); await handle(r,link?"Zoom link saved":"Zoom link cleared",["appointments"]); });
+  el("newSbk")&&el("newSbk").addEventListener("click",superbrainForm);
+  bindAll("[data-cert]","data-cert",function(id){ openCertificate(id); });
 }
 function bindAll(sel,attr,fn){ [].forEach.call(document.querySelectorAll(sel),function(b){ b.addEventListener("click",function(){ fn(b.getAttribute(attr)); }); }); }
 async function handle(r,okMsg,reloadKeys){
@@ -571,6 +608,48 @@ function pinPrompt(title,cb){
   bg.querySelector("#pinCancel").onclick=function(){bg.remove();};
   bg.querySelector("#pinGo").onclick=async function(){ var ok=await cb(pin.value.trim()); if(ok) bg.remove(); else { bg.querySelector("#pinErr").textContent="Try again."; } };
   pin.addEventListener("keydown",function(e){if(e.key==="Enter")bg.querySelector("#pinGo").click();});
+}
+function superbrainForm(){
+  var CATS=["Voice & Standards","Approvals","Compliance","Data","Operations","Clinical","General"];
+  var bg=document.createElement("div"); bg.className="modal-bg";
+  bg.innerHTML="<div class='modal'><h3>Add to the Superbrain</h3>"+
+    "<div class='field'><label>Topic</label><input id='sbTopic' placeholder='Short title of the rule or fact'></div>"+
+    "<div class='field'><label>Category</label><select id='sbCat'>"+CATS.map(function(c){return "<option>"+esc(c)+"</option>";}).join("")+"</select></div>"+
+    "<div class='field'><label>What everyone should know</label><textarea id='sbContent' rows='4'></textarea></div>"+
+    "<div class='err' id='sbErr'></div><div class='row'><button class='btn' id='sbGo'>Save to Superbrain</button><button class='btn ghost' id='sbCancel'>Cancel</button></div></div>";
+  document.body.appendChild(bg);
+  bg.querySelector("#sbCancel").onclick=function(){bg.remove();};
+  bg.querySelector("#sbGo").onclick=async function(){
+    var topic=bg.querySelector("#sbTopic").value.trim(); var content=bg.querySelector("#sbContent").value.trim();
+    if(!topic||!content){ bg.querySelector("#sbErr").textContent="Topic and content are both needed."; return; }
+    var rec={ topic:topic, category:bg.querySelector("#sbCat").value, content:content, author:state.email||"team" };
+    var r=await sb.from("superbrain").insert(rec);
+    if(r.error){ bg.querySelector("#sbErr").textContent=r.error.message; return; }
+    bg.remove(); await reload(["superbrain"]); render(); toast("Saved to the Superbrain");
+  };
+}
+function openCertificate(id){
+  var t=(state.trainings||[]).find(function(x){return x.id===id;}); if(!t) return;
+  var who=staffName(t.staff_id), course=t.title||"Training", date=t.completed_date||new Date().toISOString().slice(0,10), org=state.orgName||"Von & Bick Healthcare Associates";
+  var w=window.open("","_blank"); if(!w){ toast("Allow pop-ups to open the certificate"); return; }
+  w.document.write("<!doctype html><html><head><meta charset='utf-8'><title>Certificate — "+esc(who)+"</title>"+
+    "<style>body{font-family:Georgia,serif;background:#0b1220;margin:0;padding:40px;color:#111}"+
+    ".cert{max-width:900px;margin:0 auto;background:#fff;border:14px double #c9a24a;padding:56px 70px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)}"+
+    ".cert .k{color:#c9a24a;letter-spacing:5px;font-size:13px;text-transform:uppercase;margin-bottom:18px}"+
+    ".cert h1{font-size:40px;letter-spacing:3px;margin:0 0 6px;color:#1a2b4a}"+
+    ".cert .name{font-size:32px;margin:18px 0;color:#1a2b4a;border-bottom:2px solid #c9a24a;display:inline-block;padding:0 24px 8px}"+
+    ".cert .course{font-size:21px;margin:14px 0;font-style:italic}.cert .meta{color:#555;margin-top:8px}"+
+    ".sig{display:flex;justify-content:space-between;margin-top:52px}.sig div{width:45%;border-top:1px solid #333;padding-top:8px;font-size:14px}"+
+    "@media print{body{background:#fff;padding:0}.cert{box-shadow:none}.noprint{display:none}}"+
+    "</style></head><body><div class='cert'>"+
+    "<div class='k'>"+esc(org)+"</div><h1>Certificate of Completion</h1>"+
+    "<p>This certifies that</p><div class='name'>"+esc(who)+"</div>"+
+    "<p>has successfully completed</p><div class='course'>"+esc(course)+"</div>"+
+    "<div class='meta'>Completed "+esc(date)+(t.category?(" &middot; "+esc(t.category)):"")+"</div>"+
+    "<div class='sig'><div>"+esc(date)+"<br><span style='color:#888'>Date</span></div><div>LaVette-Gwynevere Kindler<br><span style='color:#888'>Clinical Director of Nursing</span></div></div>"+
+    "</div><div class='noprint' style='text-align:center;margin:24px'><button onclick='window.print()' style='padding:10px 24px;font-size:15px;cursor:pointer'>Print / Save PDF</button></div>"+
+    "</body></html>");
+  w.document.close();
 }
 function incidentForm(){
   var CAT=["Injury","Medication Error","Medical Emergency / ER","Hospitalization","Elopement / Missing","Restraint Used","Allegation of Abuse/Neglect","Death","Property / Other"];
