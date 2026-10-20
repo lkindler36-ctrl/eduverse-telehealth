@@ -54,6 +54,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-weight
 .nav:hover{background:#17213d;color:var(--ink)}
 .nav.active{background:#1b2746;color:var(--ink)}
 .nav .ic{width:18px;text-align:center}
+.nbadge{background:var(--red);color:#1a1300;font-size:11px;font-weight:800;border-radius:999px;padding:1px 7px;margin-left:auto}
 .side .spacer{flex:1}
 .who{font-size:12px;color:var(--muted);padding:10px;border-top:1px solid var(--line);margin-top:6px}
 .main{padding:24px 26px;max-width:1100px}
@@ -115,7 +116,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute
       <div class="tagline muted">Built by faith.</div>
     </div>
     <div class="nav" data-view="dashboard"><span class="ic">▣</span> Dashboard</div>
-    <div class="nav" data-view="alerts"><span class="ic">⚑</span> Alerts</div>
+    <div class="nav" data-view="alerts" id="navAlerts"><span class="ic">⚑</span> Alerts <span id="alertBadge" class="nbadge" style="display:none"></span></div>
     <div class="nav" data-view="clock"><span class="ic">◷</span> Time Clock</div>
     <div class="nav" data-view="team"><span class="ic">◉</span> Team</div>
     <div class="nav" data-view="scheduling"><span class="ic">▦</span> Scheduling</div>
@@ -160,7 +161,7 @@ var state={ email:null, orgName:null, role:null,
   staff:[], clients:[], shifts:[], punches:[], visits:[], incidents:[], referrals:[], bgchecks:[],
   providers:[], credentials:[], expiring:[], appointments:[], jobs:[], applicants:[],
   prescriptions:[], pharmacies:[], vagents:[], vnumbers:[], calls:[], vusage:[], refsources:[], outreach:[],
-  labs:[], trainings:[], claims:[] };
+  labs:[], trainings:[], claims:[], notifications:[] };
 var view="dashboard";
 
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
@@ -226,7 +227,8 @@ async function loadAll(){
     sb.from("lab_orders").select("*").order("ordered_date",{ascending:false}),
     sb.from("trainings").select("*").order("created_at",{ascending:false}),
     sb.from("claims").select("*").order("claim_date",{ascending:false}),
-    sb.from("superbrain").select("*").order("created_at",{ascending:false})
+    sb.from("superbrain").select("*").order("created_at",{ascending:false}),
+    sb.from("notifications").select("*").order("created_at",{ascending:false})
   ]);
   state.orgName = q[0].data&&q[0].data[0]?q[0].data[0].name:"Your Agency";
   state.role = q[1].data&&q[1].data[0]?q[1].data[0].role:"staff";
@@ -241,11 +243,12 @@ async function loadAll(){
   state.refsources=q[22].data||[]; state.outreach=q[23].data||[];
   state.labs=q[24].data||[]; state.trainings=q[25].data||[]; state.claims=q[26].data||[];
   state.superbrain=q[27].data||[];
+  state.notifications=q[28].data||[];
 }
 async function reload(tables){
   var map={staff:["staff","name",true],clients:["clients","name",true],shifts:["shifts","shift_date",true],
     punches:["time_punches","clock_in",false],visits:["evv_visits","visit_date",false],
-    incidents:["incidents","incident_date",false],referrals:["referrals","referral_date",false],bgchecks:["background_checks",null,true],providers:["providers","name",true],appointments:["appointments","appt_date",false],jobs:["job_postings","created_at",true],applicants:["applicants","created_at",false],prescriptions:["prescriptions","written_date",false],pharmacies:["pharmacies","name",true],refsources:["referral_sources","name",true],outreach:["outreach_log","contact_date",false],calls:["calls","started_at",false],labs:["lab_orders","ordered_date",false],trainings:["trainings","created_at",false],claims:["claims","claim_date",false],superbrain:["superbrain","created_at",false]};
+    incidents:["incidents","incident_date",false],referrals:["referrals","referral_date",false],bgchecks:["background_checks",null,true],providers:["providers","name",true],appointments:["appointments","appt_date",false],jobs:["job_postings","created_at",true],applicants:["applicants","created_at",false],prescriptions:["prescriptions","written_date",false],pharmacies:["pharmacies","name",true],refsources:["referral_sources","name",true],outreach:["outreach_log","contact_date",false],calls:["calls","started_at",false],labs:["lab_orders","ordered_date",false],trainings:["trainings","created_at",false],claims:["claims","claim_date",false],superbrain:["superbrain","created_at",false],notifications:["notifications","created_at",false]};
   for(var i=0;i<tables.length;i++){
     var key=tables[i], cfg=map[key]; var query=sb.from(cfg[0]).select("*");
     if(cfg[1]) query=query.order(cfg[1],{ascending:cfg[2]});
@@ -258,6 +261,7 @@ function isSup(){ return ["owner","admin","supervisor"].indexOf(state.role)>=0; 
 function render(){
   el("whoami").innerHTML=esc(state.orgName)+"<br><span class='gold'>"+esc(state.email||"")+"</span> · "+esc(state.role);
   [].forEach.call(document.querySelectorAll(".nav[data-view]"),function(n){ n.classList.toggle("active",n.getAttribute("data-view")===view); });
+  updateAlertBadge();
   var m=el("main"); var v=views[view]; m.innerHTML = v?v():"<div class='empty'>Coming soon.</div>";
   el("side").classList.remove("open");
   wire();
@@ -593,6 +597,9 @@ function wire(){
   bindAll("[data-setzoom]","data-setzoom",async function(id){ var link=prompt("Paste the Zoom for Healthcare meeting link for this visit:"); if(link===null) return; link=(link||"").trim(); if(link&&!/^https?:\/\//i.test(link)){ toast("Paste the full Zoom link (https://...)"); return; } var r=await sb.from("appointments").update({zoom_link:link||null}).eq("id",id); await handle(r,link?"Zoom link saved":"Zoom link cleared",["appointments"]); });
   el("newSbk")&&el("newSbk").addEventListener("click",superbrainForm);
   bindAll("[data-cert]","data-cert",function(id){ openCertificate(id); });
+  el("newNotif")&&el("newNotif").addEventListener("click",notificationForm);
+  bindAll("[data-notifread]","data-notifread",async function(id){ var r=await sb.from("notifications").update({read_at:new Date().toISOString()}).eq("id",id); await handle(r,"Marked read",["notifications"]); });
+  el("notifAllRead")&&el("notifAllRead").addEventListener("click",async function(){ var r=await sb.from("notifications").update({read_at:new Date().toISOString()}).is("read_at",null); await handle(r,"All marked read",["notifications"]); });
 }
 function bindAll(sel,attr,fn){ [].forEach.call(document.querySelectorAll(sel),function(b){ b.addEventListener("click",function(){ fn(b.getAttribute(attr)); }); }); }
 async function handle(r,okMsg,reloadKeys){
@@ -627,6 +634,32 @@ function superbrainForm(){
     if(r.error){ bg.querySelector("#sbErr").textContent=r.error.message; return; }
     bg.remove(); await reload(["superbrain"]); render(); toast("Saved to the Superbrain");
   };
+}
+function notificationForm(){
+  var KINDS=["census","clinical","behavioral","medical","credential","incident","referral","billing","system"];
+  var SEV=["info","warning","urgent"];
+  var bg=document.createElement("div"); bg.className="modal-bg";
+  bg.innerHTML="<div class='modal'><h3>Post a notification</h3>"+
+    "<div class='field'><label>Title</label><input id='nTitle' placeholder='e.g. Census: 1 open bed at the Suwanee home'></div>"+
+    "<div class='field'><label>Kind</label><select id='nKind'>"+KINDS.map(function(k){return "<option>"+esc(k)+"</option>";}).join("")+"</select></div>"+
+    "<div class='field'><label>Severity</label><select id='nSev'>"+SEV.map(function(s){return "<option>"+esc(s)+"</option>";}).join("")+"</select></div>"+
+    "<div class='field'><label>Detail</label><textarea id='nBody' rows='3'></textarea></div>"+
+    "<div class='err' id='nErr'></div><div class='row'><button class='btn' id='nGo'>Post</button><button class='btn ghost' id='nCancel'>Cancel</button></div></div>";
+  document.body.appendChild(bg);
+  bg.querySelector("#nCancel").onclick=function(){bg.remove();};
+  bg.querySelector("#nGo").onclick=async function(){
+    var t=bg.querySelector("#nTitle").value.trim();
+    if(!t){ bg.querySelector("#nErr").textContent="Title is required."; return; }
+    var rec={ title:t, kind:bg.querySelector("#nKind").value, severity:bg.querySelector("#nSev").value, body:bg.querySelector("#nBody").value, created_by:state.email||"team" };
+    var r=await sb.from("notifications").insert(rec);
+    if(r.error){ bg.querySelector("#nErr").textContent=r.error.message; return; }
+    bg.remove(); await reload(["notifications"]); render(); toast("Notification posted");
+  };
+}
+function updateAlertBadge(){
+  var b=el("alertBadge"); if(!b) return;
+  var u=(state.notifications||[]).filter(function(n){return !n.read_at;}).length;
+  if(u>0){ b.textContent=u; b.style.display="inline-block"; } else { b.style.display="none"; }
 }
 function openCertificate(id){
   var t=(state.trainings||[]).find(function(x){return x.id===id;}); if(!t) return;
