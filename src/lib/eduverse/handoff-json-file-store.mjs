@@ -10,6 +10,15 @@ import { dirname } from 'node:path';
 
 const FORMAT = 'vbhc-fictional-handoff-store-v1';
 const ID_RE = /^[A-Za-z0-9._:-]{1,80}$/;
+const EVENT_STATES = [
+  'RECEIVED',
+  'VALIDATED',
+  'PERSISTENCE_EVIDENCE_ATTACHED',
+  'ASSIGNMENT_PENDING',
+  'ASSIGNED_ACKNOWLEDGED',
+  'DISPATCH_ATTEMPTED',
+  'RECEIPT_EVIDENCE_ATTACHED',
+];
 
 function safeId(value, label) {
   if (typeof value !== 'string' || !ID_RE.test(value)) {
@@ -20,6 +29,47 @@ function safeId(value, label) {
 
 function emptyDocument() {
   return { format: FORMAT, nextSequence: 1, records: {} };
+}
+
+function validateEventHistory(record) {
+  if (!Array.isArray(record.events) || record.events.length === 0) {
+    throw new Error('Stored record must contain an event history.');
+  }
+  if (record.events.length > EVENT_STATES.length) {
+    throw new Error('Stored event history exceeds the supported workflow.');
+  }
+
+  let previousTime = null;
+  for (const [index, event] of record.events.entries()) {
+    if (!event || typeof event !== 'object' || Array.isArray(event)) {
+      throw new Error('Stored event history contains an invalid event.');
+    }
+    if (
+      event.eventId !== record.eventId ||
+      event.taskId !== record.taskId ||
+      event.correlationId !== record.correlationId
+    ) {
+      throw new Error('Stored event history linkage does not match its record.');
+    }
+    if (event.state !== EVENT_STATES[index]) {
+      throw new Error('Stored event history has an invalid transition sequence.');
+    }
+    safeId(event.actor, 'event actor');
+    const eventTime = typeof event.at === 'string' ? Date.parse(event.at) : Number.NaN;
+    if (!Number.isFinite(eventTime)) {
+      throw new Error('Stored event history contains an invalid timestamp.');
+    }
+    if (previousTime !== null && eventTime <= previousTime) {
+      throw new Error('Stored event history timestamps must be strictly increasing.');
+    }
+    if (!event.evidence || typeof event.evidence !== 'object' || Array.isArray(event.evidence)) {
+      throw new Error('Stored event history contains invalid evidence.');
+    }
+    previousTime = eventTime;
+  }
+  if (record.state !== record.events.at(-1).state) {
+    throw new Error('Stored record state does not match its event history.');
+  }
 }
 
 function validateRecord(record, { allowZeroVersion = false } = {}) {
@@ -33,9 +83,11 @@ function validateRecord(record, { allowZeroVersion = false } = {}) {
   if (!Number.isSafeInteger(record.version) || record.version < minimumVersion) {
     throw new Error('Stored record must contain a valid version.');
   }
-  if (!Array.isArray(record.events) || record.events.length === 0) {
-    throw new Error('Stored record must contain an event history.');
+  const expectedEventCount = record.version + (allowZeroVersion ? 1 : 0);
+  if (record.events?.length !== expectedEventCount) {
+    throw new Error('Stored record version must match its event history.');
   }
+  validateEventHistory(record);
   return structuredClone(record);
 }
 
