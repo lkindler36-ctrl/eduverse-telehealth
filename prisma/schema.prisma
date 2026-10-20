@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  CLINICIAN
+  DSP
+  AUDITOR
+}
+
+enum ClinicianCredential {
+  RN
+  LPN
+  MA
+  BH
+}
+
+enum VisitType {
+  MEDICAL
+  BEHAVIORAL_HEALTH
+  DSP_SHIFT
+}
+
+enum VisitStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum VisitModality {
+  TELEHEALTH
+  IN_PERSON
+  SHIFT
+}
+
+enum NoteType {
+  SOAP
+  BH_PROGRESS
+  DSP_SHIFT
+}
+
+enum NoteStatus {
+  DRAFT
+  LOCKED
+}
+
+enum AuditAction {
+  VISIT_CREATE
+  VISIT_UPDATE
+  VISIT_VIEW
+  NOTE_CREATE
+  NOTE_UPDATE
+  NOTE_VIEW
+  NOTE_LOCK
+  NOTE_PDF
+  INDIVIDUAL_VIEW
+  ATTACHMENT_CREATE
+  AUTH_LOGIN
+}
+
+model User {
+  id           String               @id @default(cuid())
+  email        String               @unique
+  name         String
+  passwordHash String
+  role         Role
+  credential   ClinicianCredential?
+  active       Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  authoredVisits     Visit[]              @relation("VisitClinician")
+  authoredNotes      VisitNote[]          @relation("NoteAuthor")
+  signedNotes        VisitNote[]          @relation("NoteSigner")
+  caseload           CaseloadAssignment[]
+  auditEvents        AuditLog[]
+  uploadedFiles      Attachment[]
+}
+
+model Individual {
+  id              String   @id @default(cuid())
+  /// Display name only. Seed records use Jane/John Demo labels.
+  displayName     String
+  preferredName   String?
+  dateOfBirth     DateTime?
+  /// Last four of a synthetic record number — never a full identifier.
+  recordLast4     String?
+  program         String?
+  county          String?
+  synthetic       Boolean  @default(true)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  visits     Visit[]
+  caseload   CaseloadAssignment[]
+
+  @@index([displayName])
+  @@index([active])
+}
+
+model CaseloadAssignment {
+  id           String     @id @default(cuid())
+  clinicianId  String
+  individualId String
+  createdAt    DateTime   @default(now())
+
+  clinician  User       @relation(fields: [clinicianId], references: [id], onDelete: Cascade)
+  individual Individual @relation(fields: [individualId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicianId, individualId])
+  @@index([clinicianId])
+  @@index([individualId])
+}
+
+model Visit {
+  id           String         @id @default(cuid())
+  individualId String
+  clinicianId  String
+  visitType    VisitType
+  status       VisitStatus    @default(SCHEDULED)
+  modality     VisitModality  @default(TELEHEALTH)
+  scheduledAt  DateTime
+  startedAt    DateTime?
+  endedAt      DateTime?
+  reason       String
+  locationNote String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  individual Individual  @relation(fields: [individualId], references: [id])
+  clinician  User        @relation("VisitClinician", fields: [clinicianId], references: [id])
+  notes      VisitNote[]
+
+  @@index([individualId])
+  @@index([clinicianId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model VisitNote {
+  id         String     @id @default(cuid())
+  visitId    String
+  authorId   String
+  noteType   NoteType
+  status     NoteStatus @default(DRAFT)
+  /// Structured note body. Shape depends on noteType. Never write this to logs.
+  content    Json
+  signedAt   DateTime?
+  signedById String?
+  lockedAt   DateTime?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  visit      Visit        @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  author     User         @relation("NoteAuthor", fields: [authorId], references: [id])
+  signedBy   User?        @relation("NoteSigner", fields: [signedById], references: [id])
+  attachments Attachment[]
+
+  @@index([visitId])
+  @@index([authorId])
+  @@index([status])
+}
+
+model Attachment {
+  id           String   @id @default(cuid())
+  visitNoteId  String
+  uploadedById String
+  fileName     String
+  mimeType     String
+  byteSize     Int
+  storageKey   String
+  createdAt    DateTime @default(now())
+
+  visitNote  VisitNote @relation(fields: [visitNoteId], references: [id], onDelete: Cascade)
+  uploadedBy User      @relation(fields: [uploadedById], references: [id])
+
+  @@index([visitNoteId])
+}
+
+/// Append-only. Store ids and action names only — never note text or names.
+model AuditLog {
+  id         String      @id @default(cuid())
+  actorId    String?
+  action     AuditAction
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime    @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
