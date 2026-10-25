@@ -187,8 +187,15 @@ async function enterApp(){
   el("login").style.display="none";
   el("app").style.display="grid";
   el("main").innerHTML='<div class="loading">Loading your agency…</div>';
-  await loadAll();
-  render();
+  try{
+    await loadAll();
+    render();
+  }catch(e){
+    try{await sb.auth.signOut();}catch(signoutError){}
+    el("app").style.display="none";
+    el("login").style.display="flex";
+    el("loginErr").textContent="Unable to verify your staff access. Contact your administrator.";
+  }
 }
 el("loginForm").addEventListener("submit",function(e){e.preventDefault();doLogin(el("email").value.trim(),el("password").value);});
 el("signout").addEventListener("click",async function(){await sb.auth.signOut();location.reload();});
@@ -197,10 +204,14 @@ el("menuBtn")&&el("menuBtn").addEventListener("click",function(){el("side").clas
 /* ---------- DATA ---------- */
 async function loadAll(){
   var sess=await sb.auth.getSession();
-  state.email=sess.data.session?sess.data.session.user.email:null;
+  var session=sess.data&&sess.data.session;
+  if(!session||!session.user) throw new Error("missing-session");
+  state.email=session.user.email||null;
+  var profileResult=await sb.from("profiles").select("role,org_id").limit(2);
+  if(profileResult.error||!profileResult.data||profileResult.data.length!==1) throw new Error("ambiguous-profile-scope");
   var q=await Promise.all([
     sb.from("organizations").select("name").limit(1),
-    sb.from("profiles").select("role,org_id").limit(1),
+    Promise.resolve(profileResult),
     sb.from("staff").select("*").order("name"),
     sb.from("clients").select("*").order("name"),
     sb.from("shifts").select("*").order("shift_date"),
