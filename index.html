@@ -102,8 +102,7 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute
       <div class="err" id="loginErr"></div>
     </form>
     <div class="demo-note">
-      Want to see it live? <button class="btn ghost sm" id="demoBtn" type="button">Use demo login</button><br>
-      <span style="opacity:.8">Loads the Von &amp; Bick demo agency with sample staff &amp; data.</span>
+      Authorized staff only. Use your assigned individual account. Contact your administrator if you need access.
     </div>
   </div>
 </div>
@@ -192,7 +191,6 @@ async function enterApp(){
   render();
 }
 el("loginForm").addEventListener("submit",function(e){e.preventDefault();doLogin(el("email").value.trim(),el("password").value);});
-el("demoBtn").addEventListener("click",function(){el("email").value="ownera@demo.test";el("password").value="DemoPass!234";doLogin("ownera@demo.test","DemoPass!234");});
 el("signout").addEventListener("click",async function(){await sb.auth.signOut();location.reload();});
 el("menuBtn")&&el("menuBtn").addEventListener("click",function(){el("side").classList.toggle("open");});
 
