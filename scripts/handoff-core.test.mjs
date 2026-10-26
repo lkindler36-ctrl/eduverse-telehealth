@@ -54,17 +54,40 @@ async function withStoreAsync(run) {
   }
 }
 
-test('fictional administrative handoff records an ordered, linked evidence chain', () => {
+test('caller-supplied receipt stays unverified in the linked evidence chain', () => {
   const r = create();
   const { taskId } = start(r);
   advanceToDispatch(r, taskId);
   const end = r.attachReceiptEvidence(taskId, {
     receiptId: 'receipt-1', dispatchId: 'dispatch-1', verifiedBy: 'recipient-reader', dispatchActor: 'dispatcher',
   });
-  assert.equal(end.state, 'RECEIPT_EVIDENCE_ATTACHED');
+  assert.equal(end.state, 'RECEIPT_EVIDENCE_UNVERIFIED');
   assert.equal(end.events.length, 7);
   assert.equal(end.events.at(-1).evidence.dispatchId, 'dispatch-1');
   assert.equal(end.events.at(-1).evidence.evidenceOrigin, 'CALLER_SUPPLIED_UNVERIFIED');
+});
+
+test('authenticated reader upgrades caller-supplied evidence to verified receipt state', async () => {
+  const r = create();
+  const { taskId } = start(r, 'reader-upgrade');
+  advanceToDispatch(r, taskId);
+
+  const unverified = r.attachReceiptEvidence(taskId, {
+    receiptId: 'caller-receipt',
+    dispatchId: 'dispatch-1',
+    verifiedBy: 'manual-reviewer',
+    dispatchActor: 'dispatcher',
+  });
+  assert.equal(unverified.state, 'RECEIPT_EVIDENCE_UNVERIFIED');
+
+  const verified = await r.retrieveAndAttachReceiptEvidence(taskId, {
+    requestedBy: 'recipient-reader',
+    receiptReader: { retrieve: async () => fictionalReceipt() },
+  });
+
+  assert.equal(verified.state, 'RECEIPT_EVIDENCE_ATTACHED');
+  assert.equal(verified.events.length, 8);
+  assert.equal(verified.events.at(-1).evidence.evidenceOrigin, 'AUTHENTICATED_READER_FIXTURE');
 });
 
 test('every transition preserves event, task and correlation linkage', () => {

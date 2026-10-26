@@ -121,10 +121,17 @@ export function createFictionalHandoffRegistry({
 
   function recordedDispatch(taskId) {
     const record = durableRead(field(taskId, 'taskId'));
-    if (!record || record.state !== 'DISPATCH_ATTEMPTED') {
+    if (
+      !record ||
+      !['DISPATCH_ATTEMPTED', 'RECEIPT_EVIDENCE_UNVERIFIED'].includes(record.state)
+    ) {
       throw new Error('Receipt evidence requires a recorded dispatch attempt.');
     }
-    return { record, dispatch: record.events.at(-1) };
+    const dispatch = record.events.findLast((event) => event.state === 'DISPATCH_ATTEMPTED');
+    if (!dispatch) {
+      throw new Error('Receipt evidence requires a recorded dispatch attempt.');
+    }
+    return { record, dispatch };
   }
 
   return {
@@ -191,7 +198,7 @@ export function createFictionalHandoffRegistry({
       if (dispatch.evidence.dispatchId !== dispatchId) {
         throw new Error('Receipt dispatch ID does not match the recorded dispatch attempt.');
       }
-      return update(taskId, 'DISPATCH_ATTEMPTED', 'RECEIPT_EVIDENCE_ATTACHED', verifiedBy, {
+      return update(taskId, 'DISPATCH_ATTEMPTED', 'RECEIPT_EVIDENCE_UNVERIFIED', verifiedBy, {
         receiptId: field(receiptId, 'receiptId'),
         dispatchId,
         evidenceOrigin: 'CALLER_SUPPLIED_UNVERIFIED',
@@ -239,7 +246,7 @@ export function createFictionalHandoffRegistry({
       if (Date.parse(receivedAt) <= Date.parse(dispatchedAt)) {
         throw new Error('receipt.receivedAt must be later than the recorded dispatch timestamp.');
       }
-      return update(taskId, 'DISPATCH_ATTEMPTED', 'RECEIPT_EVIDENCE_ATTACHED', retrievedBy, {
+      return update(taskId, record.state, 'RECEIPT_EVIDENCE_ATTACHED', retrievedBy, {
         receiptId: field(receipt.receiptId, 'receipt.receiptId'),
         dispatchId,
         retrievalId: field(receipt.retrievalId, 'receipt.retrievalId'),
