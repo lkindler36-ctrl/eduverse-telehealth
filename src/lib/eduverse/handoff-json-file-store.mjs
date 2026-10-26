@@ -10,6 +10,20 @@ import { dirname } from 'node:path';
 
 const FORMAT = 'vbhc-fictional-handoff-store-v1';
 const ID_RE = /^[A-Za-z0-9._:-]{1,80}$/;
+const TIMEZONE_RE = /(?:Z|[+-]\d{2}:\d{2})$/;
+const ALLOWED_NEXT_STATE = new Map([
+  ['RECEIVED', new Set(['VALIDATED'])],
+  ['VALIDATED', new Set(['PERSISTENCE_EVIDENCE_ATTACHED'])],
+  ['PERSISTENCE_EVIDENCE_ATTACHED', new Set(['ASSIGNMENT_PENDING'])],
+  ['ASSIGNMENT_PENDING', new Set(['ASSIGNED_ACKNOWLEDGED'])],
+  ['ASSIGNED_ACKNOWLEDGED', new Set(['DISPATCH_ATTEMPTED'])],
+  ['DISPATCH_ATTEMPTED', new Set([
+    'RECEIPT_EVIDENCE_UNVERIFIED',
+    'RECEIPT_EVIDENCE_ATTACHED',
+  ])],
+  ['RECEIPT_EVIDENCE_UNVERIFIED', new Set(['RECEIPT_EVIDENCE_ATTACHED'])],
+  ['RECEIPT_EVIDENCE_ATTACHED', new Set()],
+]);
 
 function safeId(value, label) {
   if (typeof value !== 'string' || !ID_RE.test(value)) {
@@ -20,6 +34,14 @@ function safeId(value, label) {
 
 function emptyDocument() {
   return { format: FORMAT, nextSequence: 1, records: {} };
+}
+
+function validTimestamp(value) {
+  return (
+    typeof value === 'string' &&
+    TIMEZONE_RE.test(value) &&
+    Number.isFinite(Date.parse(value))
+  );
 }
 
 function validateRecord(record, { allowZeroVersion = false } = {}) {
@@ -35,6 +57,48 @@ function validateRecord(record, { allowZeroVersion = false } = {}) {
   }
   if (!Array.isArray(record.events) || record.events.length === 0) {
     throw new Error('Stored record must contain an event history.');
+  }
+  const expectedEventCount = record.version + (allowZeroVersion ? 1 : 0);
+  if (record.events.length !== expectedEventCount) {
+    throw new Error('Stored record version and event count do not match.');
+  }
+  for (const [index, event] of record.events.entries()) {
+    if (!event || typeof event !== 'object' || Array.isArray(event)) {
+      throw new Error('Stored event must be an object.');
+    }
+    if (
+      safeId(event.eventId, 'event.eventId') !== record.eventId ||
+      safeId(event.taskId, 'event.taskId') !== record.taskId ||
+      safeId(event.correlationId, 'event.correlationId') !== record.correlationId
+    ) {
+      throw new Error('Stored event linkage does not match its record.');
+    }
+    safeId(event.actor, 'event.actor');
+    if (!ALLOWED_NEXT_STATE.has(event.state)) {
+      throw new Error('Stored event contains an unknown state.');
+    }
+    if (!validTimestamp(event.at)) {
+      throw new Error('Stored event timestamp must be timezone-aware.');
+    }
+    if (
+      !event.evidence ||
+      typeof event.evidence !== 'object' ||
+      Array.isArray(event.evidence)
+    ) {
+      throw new Error('Stored event evidence must be an object.');
+    }
+    if (index === 0 && event.state !== 'RECEIVED') {
+      throw new Error('Stored event history must begin in RECEIVED.');
+    }
+    if (index > 0) {
+      const previousState = record.events[index - 1].state;
+      if (!ALLOWED_NEXT_STATE.get(previousState)?.has(event.state)) {
+        throw new Error('Stored event history contains an invalid transition.');
+      }
+    }
+  }
+  if (record.events.at(-1).state !== record.state) {
+    throw new Error('Stored record state does not match its terminal event.');
   }
   return structuredClone(record);
 }

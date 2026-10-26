@@ -207,6 +207,52 @@ test('corrupt durable state fails closed without overwriting evidence', () => wi
   assert.equal(readFileSync(filePath, 'utf8'), corruptedBytes);
 }));
 
+test('cross-linked or internally inconsistent durable history fails closed', () => withStore(({ filePath, store }) => {
+  const r = create({ store });
+  const started = start(r, 'linked-corruption-1');
+  r.validate(started.taskId, 'reviewer');
+  const original = JSON.parse(readFileSync(filePath, 'utf8'));
+  const cases = [
+    {
+      mutate: (document) => {
+        document.records[started.taskId].events[1].correlationId = 'other-correlation';
+      },
+      error: /event linkage does not match/,
+    },
+    {
+      mutate: (document) => {
+        document.records[started.taskId].state = 'RECEIVED';
+      },
+      error: /state does not match its terminal event/,
+    },
+    {
+      mutate: (document) => {
+        document.records[started.taskId].events.pop();
+      },
+      error: /version and event count do not match/,
+    },
+    {
+      mutate: (document) => {
+        document.records[started.taskId].events[1].state = 'ASSIGNED_ACKNOWLEDGED';
+        document.records[started.taskId].state = 'ASSIGNED_ACKNOWLEDGED';
+      },
+      error: /invalid transition/,
+    },
+  ];
+
+  for (const corruption of cases) {
+    const document = structuredClone(original);
+    corruption.mutate(document);
+    writeFileSync(filePath, JSON.stringify(document, null, 2) + '\n', 'utf8');
+    const corruptedBytes = readFileSync(filePath, 'utf8');
+    assert.throws(
+      () => create({ store: createFictionalJsonFileStore({ filePath }) }).get(started.taskId),
+      corruption.error,
+    );
+    assert.equal(readFileSync(filePath, 'utf8'), corruptedBytes);
+  }
+}));
+
 test('stale registry cannot overwrite a newer durable transition', () => withStore(({ filePath, store }) => {
   const seed = create({ store });
   const started = start(seed, 'concurrent-write-1');
