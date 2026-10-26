@@ -11,6 +11,7 @@ import { dirname } from 'node:path';
 const FORMAT = 'vbhc-fictional-handoff-store-v1';
 const ID_RE = /^[A-Za-z0-9._:-]{1,80}$/;
 const TIMEZONE_RE = /(?:Z|[+-]\d{2}:\d{2})$/;
+const ORGS = new Set(['VBHC', 'EDUVERSE_TELEHEALTH']);
 const ALLOWED_NEXT_STATE = new Map([
   ['RECEIVED', new Set(['VALIDATED'])],
   ['VALIDATED', new Set(['PERSISTENCE_EVIDENCE_ATTACHED'])],
@@ -51,6 +52,12 @@ function validateRecord(record, { allowZeroVersion = false } = {}) {
   safeId(record.taskId, 'taskId');
   safeId(record.eventId, 'eventId');
   safeId(record.correlationId, 'correlationId');
+  if (!ORGS.has(record.source) || !ORGS.has(record.target)) {
+    throw new Error('Stored record contains an unknown organization.');
+  }
+  if (record.source === record.target) {
+    throw new Error('Stored record source and target must be distinct.');
+  }
   const minimumVersion = allowZeroVersion ? 0 : 1;
   if (!Number.isSafeInteger(record.version) || record.version < minimumVersion) {
     throw new Error('Stored record must contain a valid version.');
@@ -91,9 +98,13 @@ function validateRecord(record, { allowZeroVersion = false } = {}) {
       throw new Error('Stored event history must begin in RECEIVED.');
     }
     if (index > 0) {
-      const previousState = record.events[index - 1].state;
+      const previousEvent = record.events[index - 1];
+      const previousState = previousEvent.state;
       if (!ALLOWED_NEXT_STATE.get(previousState)?.has(event.state)) {
         throw new Error('Stored event history contains an invalid transition.');
+      }
+      if (Date.parse(event.at) < Date.parse(previousEvent.at)) {
+        throw new Error('Stored event history contains a backward timestamp.');
       }
     }
   }

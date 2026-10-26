@@ -129,6 +129,16 @@ test('duplicate correlation ID is idempotent with same organization routing', ()
   assert.throws(() => r.receive({correlationId: 'test-1', source: 'EDUVERSE_TELEHEALTH', target: 'VBHC', fictional: true}), /conflict/);
 });
 
+test('same-organization handoff is rejected before persistence', () => {
+  const r = create();
+  assert.throws(() => r.receive({
+    correlationId: 'same-org-1',
+    source: 'VBHC',
+    target: 'VBHC',
+    fictional: true,
+  }), /must be distinct/);
+});
+
 test('receipt cannot be attached before dispatch', () => {
   const r = create();
   const { taskId } = start(r);
@@ -237,6 +247,45 @@ test('cross-linked or internally inconsistent durable history fails closed', () 
         document.records[started.taskId].state = 'ASSIGNED_ACKNOWLEDGED';
       },
       error: /invalid transition/,
+    },
+  ];
+
+  for (const corruption of cases) {
+    const document = structuredClone(original);
+    corruption.mutate(document);
+    writeFileSync(filePath, JSON.stringify(document, null, 2) + '\n', 'utf8');
+    const corruptedBytes = readFileSync(filePath, 'utf8');
+    assert.throws(
+      () => create({ store: createFictionalJsonFileStore({ filePath }) }).get(started.taskId),
+      corruption.error,
+    );
+    assert.equal(readFileSync(filePath, 'utf8'), corruptedBytes);
+  }
+}));
+
+test('invalid durable organization routing or backward chronology fails closed', () => withStore(({ filePath, store }) => {
+  const r = create({ store });
+  const started = start(r, 'route-chronology-corruption-1');
+  r.validate(started.taskId, 'reviewer');
+  const original = JSON.parse(readFileSync(filePath, 'utf8'));
+  const cases = [
+    {
+      mutate: (document) => {
+        document.records[started.taskId].source = 'UNKNOWN_ORG';
+      },
+      error: /unknown organization/,
+    },
+    {
+      mutate: (document) => {
+        document.records[started.taskId].target = 'VBHC';
+      },
+      error: /must be distinct/,
+    },
+    {
+      mutate: (document) => {
+        document.records[started.taskId].events[1].at = '2026-10-18T11:59:59.999Z';
+      },
+      error: /backward timestamp/,
     },
   ];
 
