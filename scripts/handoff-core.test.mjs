@@ -87,6 +87,7 @@ test('authenticated reader upgrades caller-supplied evidence to verified receipt
 
   assert.equal(verified.state, 'RECEIPT_EVIDENCE_ATTACHED');
   assert.equal(verified.events.length, 8);
+  assert.equal(verified.events.at(-1).at, '2026-10-18T12:01:00.000Z');
   assert.equal(verified.events.at(-1).evidence.evidenceOrigin, 'AUTHENTICATED_READER_FIXTURE');
 });
 
@@ -295,6 +296,35 @@ test('authenticated receipt timestamp must be later than the recorded dispatch',
     receiptReader: { retrieve: async () => fictionalReceipt({ receivedAt: '2026-10-18T11:59:59.999Z' }) },
   }), /later than the recorded dispatch/);
   assert.equal(r.get(taskId).state, 'DISPATCH_ATTEMPTED');
+});
+
+test('authenticated upgrade rejects a receipt older than intervening unverified evidence', async () => {
+  const times = [
+    '2026-10-18T12:00:00.000Z',
+    '2026-10-18T12:01:00.000Z',
+    '2026-10-18T12:02:00.000Z',
+    '2026-10-18T12:03:00.000Z',
+    '2026-10-18T12:04:00.000Z',
+    '2026-10-18T12:05:00.000Z',
+    '2026-10-18T12:10:00.000Z',
+  ];
+  const r = createFictionalHandoffRegistry({ clock: () => times.shift() });
+  const { taskId } = start(r, 'reader-upgrade-time-order');
+  advanceToDispatch(r, taskId);
+  r.attachReceiptEvidence(taskId, {
+    receiptId: 'caller-receipt',
+    dispatchId: 'dispatch-1',
+    verifiedBy: 'manual-reviewer',
+    dispatchActor: 'dispatcher',
+  });
+
+  await assert.rejects(r.retrieveAndAttachReceiptEvidence(taskId, {
+    requestedBy: 'recipient-reader',
+    receiptReader: {
+      retrieve: async () => fictionalReceipt({ receivedAt: '2026-10-18T12:06:00.000Z' }),
+    },
+  }), /later than the latest recorded event/);
+  assert.equal(r.get(taskId).state, 'RECEIPT_EVIDENCE_UNVERIFIED');
 });
 
 test('mismatched dispatch or non-independent actor fails closed', async () => {

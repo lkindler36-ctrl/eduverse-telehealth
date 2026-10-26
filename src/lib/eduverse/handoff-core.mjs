@@ -97,14 +97,14 @@ export function createFictionalHandoffRegistry({
     return remember(readback);
   }
 
-  function update(taskId, expected, state, actor, evidence = {}) {
+  function update(taskId, expected, state, actor, evidence = {}, eventAt = null) {
     taskId = field(taskId, 'taskId');
     const current = durableRead(taskId);
     if (!current) throw new Error('Unknown task.');
     if (current.state !== expected) {
       throw new Error('Invalid transition from ' + current.state + '; expected ' + expected + '.');
     }
-    const at = timestamp(clock(), 'event timestamp');
+    const at = timestamp(eventAt ?? clock(), 'event timestamp');
     const next = snapshot(current);
     next.state = state;
     next.events.push({
@@ -246,6 +246,10 @@ export function createFictionalHandoffRegistry({
       if (Date.parse(receivedAt) <= Date.parse(dispatchedAt)) {
         throw new Error('receipt.receivedAt must be later than the recorded dispatch timestamp.');
       }
+      const latestEventAt = timestamp(record.events.at(-1).at, 'latest event timestamp');
+      if (Date.parse(receivedAt) <= Date.parse(latestEventAt)) {
+        throw new Error('receipt.receivedAt must be later than the latest recorded event timestamp.');
+      }
       return update(taskId, record.state, 'RECEIPT_EVIDENCE_ATTACHED', retrievedBy, {
         receiptId: field(receipt.receiptId, 'receipt.receiptId'),
         dispatchId,
@@ -254,7 +258,7 @@ export function createFictionalHandoffRegistry({
         receivedAt,
         evidenceOrigin: 'AUTHENTICATED_READER_FIXTURE',
         limitation: 'Fictional authenticated-reader contract only; no external system or real recipient verified',
-      });
+      }, receivedAt);
     },
     get(taskId) {
       const record = durableRead(field(taskId, 'taskId'));
