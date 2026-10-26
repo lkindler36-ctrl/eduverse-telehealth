@@ -254,6 +254,26 @@ test('missing or unauthenticated receipt fails closed without advancing state', 
   assert.equal(r.get(taskId).state, 'DISPATCH_ATTEMPTED');
 });
 
+test('event timestamps require an explicit timezone', () => {
+  const r = createFictionalHandoffRegistry({ clock: () => '2026-10-18T12:00:00' });
+  assert.throws(() => start(r, 'timezone-required'), /timezone-aware timestamp/);
+});
+
+test('authenticated receipt timestamp must be later than the recorded dispatch', async () => {
+  const r = create();
+  const { taskId } = start(r, 'reader-time-order');
+  advanceToDispatch(r, taskId);
+  await assert.rejects(r.retrieveAndAttachReceiptEvidence(taskId, {
+    requestedBy: 'recipient-reader',
+    receiptReader: { retrieve: async () => fictionalReceipt({ receivedAt: '2026-10-18T12:00:00.000Z' }) },
+  }), /later than the recorded dispatch/);
+  await assert.rejects(r.retrieveAndAttachReceiptEvidence(taskId, {
+    requestedBy: 'recipient-reader',
+    receiptReader: { retrieve: async () => fictionalReceipt({ receivedAt: '2026-10-18T11:59:59.999Z' }) },
+  }), /later than the recorded dispatch/);
+  assert.equal(r.get(taskId).state, 'DISPATCH_ATTEMPTED');
+});
+
 test('mismatched dispatch or non-independent actor fails closed', async () => {
   const r = create();
   const { taskId } = start(r, 'reader-mismatch');
@@ -268,3 +288,4 @@ test('mismatched dispatch or non-independent actor fails closed', async () => {
   }), /must differ/);
   assert.equal(r.get(taskId).state, 'DISPATCH_ATTEMPTED');
 });
+
