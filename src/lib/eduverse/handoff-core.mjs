@@ -5,6 +5,7 @@
  */
 const ORGS = new Set(['VBHC', 'EDUVERSE_TELEHEALTH']);
 const ID_RE = /^[A-Za-z0-9._:-]{1,80}$/;
+const TIMEZONE_RE = /(?:Z|[+-]\d{2}:\d{2})$/;
 
 function field(value, label) {
   if (typeof value !== 'string' || !ID_RE.test(value)) {
@@ -14,8 +15,12 @@ function field(value, label) {
 }
 
 function timestamp(value, label) {
-  if (typeof value !== 'string' || !Number.isFinite(Date.parse(value))) {
-    throw new Error(label + ' must be a valid timestamp.');
+  if (
+    typeof value !== 'string' ||
+    !TIMEZONE_RE.test(value) ||
+    !Number.isFinite(Date.parse(value))
+  ) {
+    throw new Error(label + ' must be a valid timezone-aware timestamp.');
   }
   return value;
 }
@@ -229,12 +234,17 @@ export function createFictionalHandoffRegistry({
       if (recipientActor === dispatch.actor) {
         throw new Error('Receipt recipient actor must differ from the dispatcher.');
       }
+      const receivedAt = timestamp(receipt.receivedAt, 'receipt.receivedAt');
+      const dispatchedAt = timestamp(dispatch.at, 'dispatch.at');
+      if (Date.parse(receivedAt) <= Date.parse(dispatchedAt)) {
+        throw new Error('receipt.receivedAt must be later than the recorded dispatch timestamp.');
+      }
       return update(taskId, 'DISPATCH_ATTEMPTED', 'RECEIPT_EVIDENCE_ATTACHED', retrievedBy, {
         receiptId: field(receipt.receiptId, 'receipt.receiptId'),
         dispatchId,
         retrievalId: field(receipt.retrievalId, 'receipt.retrievalId'),
         recipientActor,
-        receivedAt: timestamp(receipt.receivedAt, 'receipt.receivedAt'),
+        receivedAt,
         evidenceOrigin: 'AUTHENTICATED_READER_FIXTURE',
         limitation: 'Fictional authenticated-reader contract only; no external system or real recipient verified',
       });
@@ -245,3 +255,4 @@ export function createFictionalHandoffRegistry({
     },
   };
 }
+
