@@ -219,6 +219,42 @@ test('durable store rejects a second task for an existing correlation ID', () =>
   assert.equal(store.findByCorrelation(started.correlationId).taskId, started.taskId);
 }));
 
+test('durable store rejects rewritten task identity and event history', () => withStore(({ filePath, store }) => {
+  const registry = create({ store });
+  const started = start(registry, 'immutable-history-1');
+  const originalBytes = readFileSync(filePath, 'utf8');
+
+  const transition = structuredClone(started);
+  transition.state = 'VALIDATED';
+  transition.events.push({
+    eventId: transition.eventId,
+    taskId: transition.taskId,
+    correlationId: transition.correlationId,
+    state: 'VALIDATED',
+    actor: 'reviewer',
+    at: '2026-10-18T12:00:00.000Z',
+    evidence: {},
+  });
+
+  const rerouted = structuredClone(transition);
+  rerouted.source = 'EDUVERSE_TELEHEALTH';
+  rerouted.target = 'VBHC';
+  assert.throws(
+    () => store.save(rerouted, { expectedVersion: started.version }),
+    /identity and routing cannot be rewritten/,
+  );
+  assert.equal(readFileSync(filePath, 'utf8'), originalBytes);
+
+  const rewritten = structuredClone(transition);
+  rewritten.events[0].actor = 'history-rewriter';
+  assert.throws(
+    () => store.save(rewritten, { expectedVersion: started.version }),
+    /event history cannot be rewritten/,
+  );
+  assert.equal(readFileSync(filePath, 'utf8'), originalBytes);
+  assert.deepEqual(store.read(started.taskId), started);
+}));
+
 test('duplicate correlation replay returns the latest durable version', () => withStore(({ filePath, store }) => {
   const seed = create({ store });
   const started = start(seed, 'dedupe-readthrough-1');
