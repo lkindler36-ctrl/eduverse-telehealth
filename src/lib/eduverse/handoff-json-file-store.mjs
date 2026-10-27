@@ -7,6 +7,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 const FORMAT = 'vbhc-fictional-handoff-store-v1';
 const ID_RE = /^[A-Za-z0-9._:-]{1,80}$/;
@@ -198,6 +199,17 @@ export function createFictionalJsonFileStore({ filePath }) {
         );
         conflict.code = 'HANDOFF_STORE_CONFLICT';
         throw conflict;
+      }
+      if (existing) {
+        for (const name of ['eventId', 'correlationId', 'source', 'target', 'fictional']) {
+          if (next[name] !== existing[name]) {
+            throw new Error('Stored task identity and routing cannot be rewritten.');
+          }
+        }
+        const durableHistory = next.events.slice(0, existing.events.length);
+        if (!isDeepStrictEqual(durableHistory, existing.events)) {
+          throw new Error('Stored event history cannot be rewritten.');
+        }
       }
       next.version = expectedVersion + 1;
       document.records[next.taskId] = next;
