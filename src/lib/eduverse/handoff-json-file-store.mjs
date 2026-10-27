@@ -70,6 +70,9 @@ function validateRecord(record, { allowZeroVersion = false } = {}) {
   if (record.events.length !== expectedEventCount) {
     throw new Error('Stored record version and event count do not match.');
   }
+  let recordedDispatchId;
+  let recordedDispatchActor;
+  let recordedDispatchAt;
   for (const [index, event] of record.events.entries()) {
     if (!event || typeof event !== 'object' || Array.isArray(event)) {
       throw new Error('Stored event must be an object.');
@@ -94,6 +97,59 @@ function validateRecord(record, { allowZeroVersion = false } = {}) {
       Array.isArray(event.evidence)
     ) {
       throw new Error('Stored event evidence must be an object.');
+    }
+    if (event.state === 'DISPATCH_ATTEMPTED') {
+      recordedDispatchId = safeId(
+        event.evidence.dispatchId,
+        'dispatch evidence.dispatchId',
+      );
+      recordedDispatchActor = event.actor;
+      recordedDispatchAt = event.at;
+    }
+    if (
+      event.state === 'RECEIPT_EVIDENCE_UNVERIFIED' ||
+      event.state === 'RECEIPT_EVIDENCE_ATTACHED'
+    ) {
+      if (!recordedDispatchId) {
+        throw new Error('Stored receipt evidence has no recorded dispatch attempt.');
+      }
+      const receiptDispatchId = safeId(
+        event.evidence.dispatchId,
+        'receipt evidence.dispatchId',
+      );
+      safeId(event.evidence.receiptId, 'receipt evidence.receiptId');
+      if (receiptDispatchId !== recordedDispatchId) {
+        throw new Error('Stored receipt dispatch ID does not match the recorded dispatch attempt.');
+      }
+      if (event.actor === recordedDispatchActor) {
+        throw new Error('Stored receipt evidence actor must differ from the dispatcher.');
+      }
+      if (event.state === 'RECEIPT_EVIDENCE_UNVERIFIED') {
+        if (event.evidence.evidenceOrigin !== 'CALLER_SUPPLIED_UNVERIFIED') {
+          throw new Error('Stored unverified receipt evidence has an invalid origin.');
+        }
+      } else {
+        safeId(event.evidence.retrievalId, 'receipt evidence.retrievalId');
+        const recipientActor = safeId(
+          event.evidence.recipientActor,
+          'receipt evidence.recipientActor',
+        );
+        if (recipientActor === recordedDispatchActor) {
+          throw new Error('Stored receipt recipient actor must differ from the dispatcher.');
+        }
+        if (event.evidence.evidenceOrigin !== 'AUTHENTICATED_READER_FIXTURE') {
+          throw new Error('Stored verified receipt evidence has an invalid origin.');
+        }
+        if (
+          !validTimestamp(event.evidence.receivedAt) ||
+          event.evidence.receivedAt !== event.at
+        ) {
+          throw new Error('Stored verified receipt time must match its event timestamp.');
+        }
+        if (Date.parse(event.evidence.receivedAt) <= Date.parse(recordedDispatchAt)) {
+          throw new Error('Stored verified receipt must be later than its dispatch attempt.');
+        }
+      }
     }
     if (index === 0 && event.state !== 'RECEIVED') {
       throw new Error('Stored event history must begin in RECEIVED.');
