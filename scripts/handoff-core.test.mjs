@@ -361,6 +361,55 @@ test('cross-linked or internally inconsistent durable history fails closed', () 
   }
 }));
 
+test('durable dispatch and receipt evidence linkage fails closed', async () => withStoreAsync(async ({ filePath, store }) => {
+  const r = create({ store });
+  const started = start(r, 'durable-receipt-lineage');
+  advanceToDispatch(r, started.taskId, 'dispatch-recorded');
+  await r.retrieveAndAttachReceiptEvidence(started.taskId, {
+    requestedBy: 'recipient-reader',
+    receiptReader: {
+      retrieve: async () => fictionalReceipt({
+        correlationId: 'durable-receipt-lineage',
+        dispatchId: 'dispatch-recorded',
+      }),
+    },
+  });
+  const original = JSON.parse(readFileSync(filePath, 'utf8'));
+  const cases = [
+    {
+      mutate: (document) => {
+        delete document.records[started.taskId].events[5].evidence.dispatchId;
+      },
+      error: /dispatch evidence\.dispatchId must be/,
+    },
+    {
+      mutate: (document) => {
+        document.records[started.taskId].events.at(-1).evidence.dispatchId = 'dispatch-other';
+      },
+      error: /receipt dispatch ID does not match the recorded dispatch attempt/,
+    },
+    {
+      mutate: (document) => {
+        document.records[started.taskId].events.at(-1).evidence.receivedAt =
+          '2026-10-18T12:02:00.000Z';
+      },
+      error: /receipt time must match its event timestamp/,
+    },
+  ];
+
+  for (const corruption of cases) {
+    const document = structuredClone(original);
+    corruption.mutate(document);
+    writeFileSync(filePath, JSON.stringify(document, null, 2) + '\n', 'utf8');
+    const corruptedBytes = readFileSync(filePath, 'utf8');
+    assert.throws(
+      () => create({ store: createFictionalJsonFileStore({ filePath }) }).get(started.taskId),
+      corruption.error,
+    );
+    assert.equal(readFileSync(filePath, 'utf8'), corruptedBytes);
+  }
+}));
+
 test('invalid durable organization routing or backward chronology fails closed', () => withStore(({ filePath, store }) => {
   const r = create({ store });
   const started = start(r, 'route-chronology-corruption-1');
