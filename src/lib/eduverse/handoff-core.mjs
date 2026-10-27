@@ -105,6 +105,10 @@ export function createFictionalHandoffRegistry({
       throw new Error('Invalid transition from ' + current.state + '; expected ' + expected + '.');
     }
     const at = timestamp(eventAt ?? clock(), 'event timestamp');
+    const latestEventAt = timestamp(current.events.at(-1).at, 'latest event timestamp');
+    if (Date.parse(at) < Date.parse(latestEventAt)) {
+      throw new Error('Event timestamp cannot be earlier than the latest recorded event timestamp.');
+    }
     const next = snapshot(current);
     next.state = state;
     next.events.push({

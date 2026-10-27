@@ -378,6 +378,42 @@ test('event timestamps require an explicit timezone', () => {
   assert.throws(() => start(r, 'timezone-required'), /timezone-aware timestamp/);
 });
 
+test('core rejects a backward transition timestamp before in-memory mutation', () => {
+  const times = [
+    '2026-10-18T12:00:00.000Z',
+    '2026-10-18T11:59:59.999Z',
+  ];
+  const r = createFictionalHandoffRegistry({ clock: () => times.shift() });
+  const started = start(r, 'core-backward-in-memory');
+  assert.throws(
+    () => r.validate(started.taskId, 'reviewer'),
+    /earlier than the latest recorded event timestamp/,
+  );
+  const unchanged = r.get(started.taskId);
+  assert.equal(unchanged.state, 'RECEIVED');
+  assert.equal(unchanged.version, 1);
+  assert.equal(unchanged.events.length, 1);
+});
+
+test('core rejects a backward transition timestamp before durable mutation', () => withStore(({ filePath, store }) => {
+  const times = [
+    '2026-10-18T12:00:00.000Z',
+    '2026-10-18T11:59:59.999Z',
+  ];
+  const r = createFictionalHandoffRegistry({ clock: () => times.shift(), store });
+  const started = start(r, 'core-backward-durable');
+  const before = readFileSync(filePath, 'utf8');
+  assert.throws(
+    () => r.validate(started.taskId, 'reviewer'),
+    /earlier than the latest recorded event timestamp/,
+  );
+  assert.equal(readFileSync(filePath, 'utf8'), before);
+  const recovered = create({ store: createFictionalJsonFileStore({ filePath }) }).get(started.taskId);
+  assert.equal(recovered.state, 'RECEIVED');
+  assert.equal(recovered.version, 1);
+  assert.equal(recovered.events.length, 1);
+}));
+
 test('authenticated receipt timestamp must be later than the recorded dispatch', async () => {
   const r = create();
   const { taskId } = start(r, 'reader-time-order');
