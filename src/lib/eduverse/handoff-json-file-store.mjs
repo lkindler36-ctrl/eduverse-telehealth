@@ -182,6 +182,14 @@ export function createFictionalJsonFileStore({ filePath }) {
       if (existing && existing.correlationId !== next.correlationId) {
         throw new Error('Task ID conflicts with another correlation ID.');
       }
+      const correlationOwner = Object.values(document.records).find(
+        (record) =>
+          record.correlationId === next.correlationId &&
+          record.taskId !== next.taskId,
+      );
+      if (correlationOwner) {
+        throw new Error('Correlation ID is already linked to another task.');
+      }
       const actualVersion = existing ? existing.version : 0;
       if (actualVersion !== expectedVersion) {
         const conflict = new Error(

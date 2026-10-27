@@ -200,6 +200,25 @@ test('duplicate correlation remains idempotent after registry restart', () => wi
   }), /conflict/);
 }));
 
+test('durable store rejects a second task for an existing correlation ID', () => withStore(({ filePath, store }) => {
+  const r = create({ store });
+  const started = start(r, 'durable-correlation-owner-1');
+  const conflicting = structuredClone(started);
+  conflicting.taskId = 'demo-task-9999';
+  conflicting.eventId = 'demo-event-9999';
+  conflicting.version = 0;
+  conflicting.events[0].taskId = conflicting.taskId;
+  conflicting.events[0].eventId = conflicting.eventId;
+  const before = readFileSync(filePath, 'utf8');
+
+  assert.throws(
+    () => store.save(conflicting, { expectedVersion: 0 }),
+    /Correlation ID is already linked to another task/,
+  );
+  assert.equal(readFileSync(filePath, 'utf8'), before);
+  assert.equal(store.findByCorrelation(started.correlationId).taskId, started.taskId);
+}));
+
 test('duplicate correlation replay returns the latest durable version', () => withStore(({ filePath, store }) => {
   const seed = create({ store });
   const started = start(seed, 'dedupe-readthrough-1');
