@@ -29,6 +29,23 @@ function snapshot(record) {
   return structuredClone(record);
 }
 
+function exactlyMatches(left, right) {
+  if (Object.is(left, right)) return true;
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') {
+    return false;
+  }
+  if (Array.isArray(left) !== Array.isArray(right)) return false;
+  if (Array.isArray(left)) {
+    return left.length === right.length &&
+      left.every((value, index) => exactlyMatches(value, right[index]));
+  }
+  const leftKeys = Object.keys(left).sort();
+  const rightKeys = Object.keys(right).sort();
+  return leftKeys.length === rightKeys.length &&
+    leftKeys.every((key, index) =>
+      key === rightKeys[index] && exactlyMatches(left[key], right[key]));
+}
+
 function validateStore(store) {
   if (store === null) return;
   for (const method of ['allocateSequence', 'save', 'read', 'findByCorrelation']) {
@@ -83,16 +100,10 @@ export function createFictionalHandoffRegistry({
       }
       throw error;
     }
-    if (
-      !readback ||
-      readback.taskId !== record.taskId ||
-      readback.eventId !== record.eventId ||
-      readback.correlationId !== record.correlationId ||
-      readback.state !== record.state ||
-      readback.version !== expectedVersion + 1 ||
-      readback.events.length !== record.events.length
-    ) {
-      throw new Error('Durable store readback did not match the written record.');
+    const expectedReadback = snapshot(record);
+    expectedReadback.version = expectedVersion + 1;
+    if (!exactlyMatches(readback, expectedReadback)) {
+      throw new Error('Durable store readback did not exactly match the written record.');
     }
     return remember(readback);
   }

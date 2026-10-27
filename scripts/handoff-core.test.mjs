@@ -414,6 +414,58 @@ test('core rejects a backward transition timestamp before durable mutation', () 
   assert.equal(recovered.events.length, 1);
 }));
 
+test('core rejects a durable create readback with altered routing', () => withStore(({ filePath, store }) => {
+  const alteredStore = {
+    allocateSequence: () => store.allocateSequence(),
+    read: (taskId) => store.read(taskId),
+    findByCorrelation: (correlationId) => store.findByCorrelation(correlationId),
+    save(record, options) {
+      const readback = store.save(record, options);
+      return {
+        ...readback,
+        source: readback.target,
+        target: readback.source,
+      };
+    },
+  };
+  const r = create({ store: alteredStore });
+  assert.throws(
+    () => start(r, 'altered-create-readback'),
+    /did not exactly match the written record/,
+  );
+  const durable = create({ store: createFictionalJsonFileStore({ filePath }) })
+    .get('demo-task-0001');
+  assert.equal(durable.source, 'VBHC');
+  assert.equal(durable.target, 'EDUVERSE_TELEHEALTH');
+}));
+
+test('core rejects a durable transition readback with altered audit evidence', () => withStore(({ filePath, store }) => {
+  let saves = 0;
+  const alteredStore = {
+    allocateSequence: () => store.allocateSequence(),
+    read: (taskId) => store.read(taskId),
+    findByCorrelation: (correlationId) => store.findByCorrelation(correlationId),
+    save(record, options) {
+      saves += 1;
+      const readback = store.save(record, options);
+      if (saves === 1) return readback;
+      const altered = structuredClone(readback);
+      altered.events.at(-1).actor = 'different-reviewer';
+      return altered;
+    },
+  };
+  const r = create({ store: alteredStore });
+  const started = start(r, 'altered-transition-readback');
+  assert.throws(
+    () => r.validate(started.taskId, 'reviewer'),
+    /did not exactly match the written record/,
+  );
+  const durable = create({ store: createFictionalJsonFileStore({ filePath }) })
+    .get(started.taskId);
+  assert.equal(durable.state, 'VALIDATED');
+  assert.equal(durable.events.at(-1).actor, 'reviewer');
+}));
+
 test('authenticated receipt timestamp must be later than the recorded dispatch', async () => {
   const r = create();
   const { taskId } = start(r, 'reader-time-order');
