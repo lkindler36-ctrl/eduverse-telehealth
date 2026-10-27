@@ -246,6 +246,16 @@ export function createFictionalHandoffRegistry({
       if (receipt.authenticated !== true) {
         throw new Error('Receipt reader did not provide authenticated evidence.');
       }
+      for (const [name, expected] of [
+        ['taskId', record.taskId],
+        ['eventId', record.eventId],
+        ['correlationId', record.correlationId],
+      ]) {
+        const actual = field(receipt[name], 'receipt.' + name);
+        if (actual !== expected) {
+          throw new Error('Retrieved receipt ' + name + ' does not match the recorded handoff.');
+        }
+      }
       const dispatchId = field(receipt.dispatchId, 'receipt.dispatchId');
       if (dispatchId !== dispatch.evidence.dispatchId) {
         throw new Error('Retrieved receipt does not match the recorded dispatch attempt.');

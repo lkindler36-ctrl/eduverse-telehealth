@@ -24,6 +24,9 @@ function fictionalReceipt(overrides = {}) {
   return {
     fictional: true,
     authenticated: true,
+    taskId: 'demo-task-0001',
+    eventId: 'demo-event-0001',
+    correlationId: 'test-1',
     receiptId: 'receipt-1',
     dispatchId: 'dispatch-1',
     retrievalId: 'retrieval-1',
@@ -82,7 +85,7 @@ test('authenticated reader upgrades caller-supplied evidence to verified receipt
 
   const verified = await r.retrieveAndAttachReceiptEvidence(taskId, {
     requestedBy: 'recipient-reader',
-    receiptReader: { retrieve: async () => fictionalReceipt() },
+    receiptReader: { retrieve: async () => fictionalReceipt({ correlationId: 'reader-upgrade' }) },
   });
 
   assert.equal(verified.state, 'RECEIPT_EVIDENCE_ATTACHED');
@@ -374,7 +377,7 @@ test('authenticated reader fixture links receipt to the exact dispatch', async (
   const restarted = create({ store: createFictionalJsonFileStore({ filePath }) });
   const end = await restarted.retrieveAndAttachReceiptEvidence(started.taskId, {
     requestedBy: 'recipient-reader',
-    receiptReader: { retrieve: async () => fictionalReceipt() },
+    receiptReader: { retrieve: async () => fictionalReceipt({ correlationId: 'reader-success' }) },
   });
   assert.equal(end.state, 'RECEIPT_EVIDENCE_ATTACHED');
   assert.equal(end.events.at(-1).evidence.evidenceOrigin, 'AUTHENTICATED_READER_FIXTURE');
@@ -389,7 +392,10 @@ test('reader request carries exact linkage and independent retrieval actor', asy
   let request;
   await r.retrieveAndAttachReceiptEvidence(started.taskId, {
     requestedBy: 'recipient-reader',
-    receiptReader: { retrieve: async (value) => { request = value; return fictionalReceipt(); } },
+    receiptReader: { retrieve: async (value) => {
+      request = value;
+      return fictionalReceipt({ correlationId: 'reader-linkage' });
+    } },
   });
   assert.deepEqual(request, {
     taskId: started.taskId,
@@ -408,7 +414,7 @@ test('missing or unauthenticated receipt fails closed without advancing state', 
     requestedBy: 'recipient-reader', receiptReader: { retrieve: async () => null },
   }), /not found/);
   await assert.rejects(r.retrieveAndAttachReceiptEvidence(taskId, {
-    requestedBy: 'recipient-reader', receiptReader: { retrieve: async () => fictionalReceipt({ authenticated: false }) },
+    requestedBy: 'recipient-reader', receiptReader: { retrieve: async () => fictionalReceipt({ authenticated: false, correlationId: 'reader-missing' }) },
   }), /authenticated evidence/);
   assert.equal(r.get(taskId).state, 'DISPATCH_ATTEMPTED');
 });
@@ -512,11 +518,11 @@ test('authenticated receipt timestamp must be later than the recorded dispatch',
   advanceToDispatch(r, taskId);
   await assert.rejects(r.retrieveAndAttachReceiptEvidence(taskId, {
     requestedBy: 'recipient-reader',
-    receiptReader: { retrieve: async () => fictionalReceipt({ receivedAt: '2026-10-18T12:00:00.000Z' }) },
+    receiptReader: { retrieve: async () => fictionalReceipt({ correlationId: 'reader-time-order', receivedAt: '2026-10-18T12:00:00.000Z' }) },
   }), /later than the recorded dispatch/);
   await assert.rejects(r.retrieveAndAttachReceiptEvidence(taskId, {
     requestedBy: 'recipient-reader',
-    receiptReader: { retrieve: async () => fictionalReceipt({ receivedAt: '2026-10-18T11:59:59.999Z' }) },
+    receiptReader: { retrieve: async () => fictionalReceipt({ correlationId: 'reader-time-order', receivedAt: '2026-10-18T11:59:59.999Z' }) },
   }), /later than the recorded dispatch/);
   assert.equal(r.get(taskId).state, 'DISPATCH_ATTEMPTED');
 });
@@ -544,7 +550,7 @@ test('authenticated upgrade rejects a receipt older than intervening unverified 
   await assert.rejects(r.retrieveAndAttachReceiptEvidence(taskId, {
     requestedBy: 'recipient-reader',
     receiptReader: {
-      retrieve: async () => fictionalReceipt({ receivedAt: '2026-10-18T12:06:00.000Z' }),
+      retrieve: async () => fictionalReceipt({ correlationId: 'reader-upgrade-time-order', receivedAt: '2026-10-18T12:06:00.000Z' }),
     },
   }), /later than the latest recorded event/);
   assert.equal(r.get(taskId).state, 'RECEIPT_EVIDENCE_UNVERIFIED');
@@ -556,12 +562,30 @@ test('mismatched dispatch or non-independent actor fails closed', async () => {
   advanceToDispatch(r, taskId);
   await assert.rejects(r.retrieveAndAttachReceiptEvidence(taskId, {
     requestedBy: 'recipient-reader',
-    receiptReader: { retrieve: async () => fictionalReceipt({ dispatchId: 'dispatch-other' }) },
+    receiptReader: { retrieve: async () => fictionalReceipt({ correlationId: 'reader-mismatch', dispatchId: 'dispatch-other' }) },
   }), /does not match/);
   await assert.rejects(r.retrieveAndAttachReceiptEvidence(taskId, {
     requestedBy: 'dispatcher',
-    receiptReader: { retrieve: async () => fictionalReceipt({ retrievedBy: 'dispatcher' }) },
+    receiptReader: { retrieve: async () => fictionalReceipt({ correlationId: 'reader-mismatch', retrievedBy: 'dispatcher' }) },
   }), /must differ/);
   assert.equal(r.get(taskId).state, 'DISPATCH_ATTEMPTED');
+});
+
+test('authenticated receipt must echo exact task, event and correlation linkage', async () => {
+  const r = create();
+  const started = start(r, 'reader-response-linkage');
+  advanceToDispatch(r, started.taskId);
+  const cases = [
+    [{ taskId: 'demo-task-other', correlationId: 'reader-response-linkage' }, /receipt taskId does not match/],
+    [{ eventId: 'demo-event-other', correlationId: 'reader-response-linkage' }, /receipt eventId does not match/],
+    [{ correlationId: 'other-correlation' }, /receipt correlationId does not match/],
+  ];
+  for (const [overrides, expected] of cases) {
+    await assert.rejects(r.retrieveAndAttachReceiptEvidence(started.taskId, {
+      requestedBy: 'recipient-reader',
+      receiptReader: { retrieve: async () => fictionalReceipt(overrides) },
+    }), expected);
+  }
+  assert.equal(r.get(started.taskId).state, 'DISPATCH_ATTEMPTED');
 });
 
