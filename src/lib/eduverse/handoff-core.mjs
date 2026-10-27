@@ -156,7 +156,9 @@ export function createFictionalHandoffRegistry({
       if (!ORGS.has(source) || !ORGS.has(target)) throw new Error('Unknown organization.');
       if (source === target) throw new Error('Source and target organizations must be distinct.');
       const memoryId = byCorrelation.get(correlationId);
-      const prior = memoryId ? durableRead(memoryId) : store?.findByCorrelation(correlationId);
+      const prior = store
+        ? store.findByCorrelation(correlationId)
+        : memoryId ? durableRead(memoryId) : null;
       if (prior) {
         remember(prior);
         if (prior.source !== source || prior.target !== target) {

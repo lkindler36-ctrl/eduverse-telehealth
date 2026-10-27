@@ -197,6 +197,27 @@ test('duplicate correlation remains idempotent after registry restart', () => wi
   }), /conflict/);
 }));
 
+test('duplicate correlation replay returns the latest durable version', () => withStore(({ filePath, store }) => {
+  const seed = create({ store });
+  const started = start(seed, 'dedupe-readthrough-1');
+
+  const stale = create({ store: createFictionalJsonFileStore({ filePath }) });
+  const cached = start(stale, 'dedupe-readthrough-1');
+  assert.equal(cached.version, 1);
+  assert.equal(cached.state, 'RECEIVED');
+
+  const writer = create({ store: createFictionalJsonFileStore({ filePath }) });
+  const advanced = writer.validate(started.taskId, 'reviewer-latest');
+  assert.equal(advanced.version, 2);
+
+  const replay = start(stale, 'dedupe-readthrough-1');
+  assert.equal(replay.taskId, started.taskId);
+  assert.equal(replay.eventId, started.eventId);
+  assert.equal(replay.version, 2);
+  assert.equal(replay.state, 'VALIDATED');
+  assert.equal(replay.events.at(-1).actor, 'reviewer-latest');
+}));
+
 test('durable sequence prevents task ID reuse after restart', () => withStore(({ filePath, store }) => {
   const first = create({ store });
   const a = start(first, 'sequence-a');
