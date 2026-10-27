@@ -218,6 +218,25 @@ test('duplicate correlation replay returns the latest durable version', () => wi
   assert.equal(replay.events.at(-1).actor, 'reviewer-latest');
 }));
 
+test('task read returns the latest durable version across registries', () => withStore(({ filePath, store }) => {
+  const seed = create({ store });
+  const started = start(seed, 'task-readthrough-1');
+
+  const reader = create({ store: createFictionalJsonFileStore({ filePath }) });
+  const cached = reader.get(started.taskId);
+  assert.equal(cached.version, 1);
+  assert.equal(cached.state, 'RECEIVED');
+
+  const writer = create({ store: createFictionalJsonFileStore({ filePath }) });
+  const advanced = writer.validate(started.taskId, 'reviewer-latest');
+  assert.equal(advanced.version, 2);
+
+  const refreshed = reader.get(started.taskId);
+  assert.equal(refreshed.version, 2);
+  assert.equal(refreshed.state, 'VALIDATED');
+  assert.equal(refreshed.events.at(-1).actor, 'reviewer-latest');
+}));
+
 test('durable sequence prevents task ID reuse after restart', () => withStore(({ filePath, store }) => {
   const first = create({ store });
   const a = start(first, 'sequence-a');
@@ -323,7 +342,7 @@ test('invalid durable organization routing or backward chronology fails closed',
   }
 }));
 
-test('stale registry cannot overwrite a newer durable transition', () => withStore(({ filePath, store }) => {
+test('stale registry refreshes before transition and cannot overwrite newer durable state', () => withStore(({ filePath, store }) => {
   const seed = create({ store });
   const started = start(seed, 'concurrent-write-1');
   assert.equal(started.version, 1);
@@ -337,7 +356,7 @@ test('stale registry cannot overwrite a newer durable transition', () => withSto
   assert.equal(advanced.version, 2);
   assert.throws(
     () => stale.validate(started.taskId, 'reviewer-2'),
-    (error) => error?.code === 'HANDOFF_STORE_CONFLICT' && /Stale write rejected/.test(error.message),
+    /Invalid transition from VALIDATED; expected RECEIVED/,
   );
 
   const durable = create({ store: createFictionalJsonFileStore({ filePath }) }).get(started.taskId);

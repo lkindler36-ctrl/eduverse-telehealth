@@ -79,10 +79,12 @@ export function createFictionalHandoffRegistry({
   }
 
   function durableRead(taskId) {
+    if (store) {
+      const stored = store.read(taskId);
+      return stored ? remember(stored) : null;
+    }
     const memory = byTask.get(taskId);
-    if (memory) return snapshot(memory);
-    const stored = store ? store.read(taskId) : null;
-    return stored ? remember(stored) : null;
+    return memory ? snapshot(memory) : null;
   }
 
   function persist(record, expectedVersion = 0) {
