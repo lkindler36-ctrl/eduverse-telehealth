@@ -81,7 +81,17 @@ export function createFictionalHandoffRegistry({
   function durableRead(taskId) {
     if (store) {
       const stored = store.read(taskId);
-      return stored ? remember(stored) : null;
+      if (!stored) return null;
+      if (stored.fictional !== true) {
+        throw new Error('Durable task read must return a fictional staging record.');
+      }
+      const storedTaskId = field(stored.taskId, 'durable task read taskId');
+      field(stored.eventId, 'durable task read eventId');
+      field(stored.correlationId, 'durable task read correlationId');
+      if (storedTaskId !== taskId) {
+        throw new Error('Durable task read returned a record for a different task ID.');
+      }
+      return remember(stored);
     }
     const memory = byTask.get(taskId);
     return memory ? snapshot(memory) : null;

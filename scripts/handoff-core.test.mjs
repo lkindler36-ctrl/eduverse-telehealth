@@ -170,6 +170,29 @@ test('durable idempotency lookup rejects non-fictional or identifierless records
   }
 });
 
+test('durable task read rejects non-fictional or mismatched identity before mutation', () => {
+  const valid = start(create(), 'durable-read-identity');
+  const cases = [
+    [{ ...valid, fictional: false }, /fictional staging record/],
+    [{ ...valid, taskId: 'demo-task-other' }, /different task ID/],
+    [{ ...valid, eventId: undefined }, /durable task read eventId/],
+    [{ ...valid, correlationId: undefined }, /durable task read correlationId/],
+  ];
+
+  for (const [storedRecord, expected] of cases) {
+    let saveCalls = 0;
+    const store = {
+      allocateSequence: () => 99,
+      save: () => { saveCalls += 1; },
+      read: () => storedRecord,
+      findByCorrelation: () => null,
+    };
+    const r = create({ store });
+    assert.throws(() => r.validate(valid.taskId, 'reviewer'), expected);
+    assert.equal(saveCalls, 0);
+  }
+});
+
 test('same-organization handoff is rejected before persistence', () => {
   const r = create();
   assert.throws(() => r.receive({
