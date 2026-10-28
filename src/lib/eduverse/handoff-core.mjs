@@ -162,6 +162,15 @@ export function createFictionalHandoffRegistry({
         ? store.findByCorrelation(correlationId)
         : memoryId ? durableRead(memoryId) : null;
       if (prior) {
+        const priorCorrelationId = field(
+          prior.correlationId,
+          'durable correlation lookup correlationId',
+        );
+        if (priorCorrelationId !== correlationId) {
+          throw new Error(
+            'Durable correlation lookup returned a record for a different correlation ID.',
+          );
+        }
         remember(prior);
         if (prior.source !== source || prior.target !== target) {
           throw new Error('Correlation ID conflict across organizations.');
