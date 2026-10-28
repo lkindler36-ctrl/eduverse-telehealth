@@ -132,6 +132,22 @@ test('duplicate correlation ID is idempotent with same organization routing', ()
   assert.throws(() => r.receive({correlationId: 'test-1', source: 'EDUVERSE_TELEHEALTH', target: 'VBHC', fictional: true}), /conflict/);
 });
 
+test('durable idempotency lookup must return the exact requested correlation', () => {
+  const wrongRecord = start(create(), 'different-correlation');
+  const store = {
+    allocateSequence: () => 99,
+    save: () => { throw new Error('save must not be called'); },
+    read: () => null,
+    findByCorrelation: () => wrongRecord,
+  };
+  const r = create({ store });
+
+  assert.throws(
+    () => start(r, 'requested-correlation'),
+    /different correlation ID/,
+  );
+});
+
 test('same-organization handoff is rejected before persistence', () => {
   const r = create();
   assert.throws(() => r.receive({
