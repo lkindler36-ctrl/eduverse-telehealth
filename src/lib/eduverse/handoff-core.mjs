@@ -162,6 +162,13 @@ export function createFictionalHandoffRegistry({
         ? store.findByCorrelation(correlationId)
         : memoryId ? durableRead(memoryId) : null;
       if (prior) {
+        if (prior.fictional !== true) {
+          throw new Error(
+            'Durable correlation lookup must return a fictional staging record.',
+          );
+        }
+        field(prior.taskId, 'durable correlation lookup taskId');
+        field(prior.eventId, 'durable correlation lookup eventId');
         const priorCorrelationId = field(
           prior.correlationId,
           'durable correlation lookup correlationId',
