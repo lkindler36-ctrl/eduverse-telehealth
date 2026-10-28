@@ -410,6 +410,53 @@ test('durable dispatch and receipt evidence linkage fails closed', async () => w
   }
 }));
 
+test('durable verified receipt chronology stays strict after unverified evidence', async () => withStoreAsync(async ({ filePath, store }) => {
+  const times = [
+    '2026-10-18T12:00:00.000Z',
+    '2026-10-18T12:01:00.000Z',
+    '2026-10-18T12:02:00.000Z',
+    '2026-10-18T12:03:00.000Z',
+    '2026-10-18T12:04:00.000Z',
+    '2026-10-18T12:05:00.000Z',
+    '2026-10-18T12:06:00.000Z',
+  ];
+  const r = createFictionalHandoffRegistry({
+    clock: () => times.shift(),
+    store,
+  });
+  const started = start(r, 'durable-receipt-chronology');
+  advanceToDispatch(r, started.taskId);
+  r.attachReceiptEvidence(started.taskId, {
+    receiptId: 'caller-receipt',
+    dispatchId: 'dispatch-1',
+    verifiedBy: 'manual-reviewer',
+    dispatchActor: 'dispatcher',
+  });
+  await r.retrieveAndAttachReceiptEvidence(started.taskId, {
+    requestedBy: 'recipient-reader',
+    receiptReader: {
+      retrieve: async () => fictionalReceipt({
+        correlationId: 'durable-receipt-chronology',
+        receivedAt: '2026-10-18T12:07:00.000Z',
+      }),
+    },
+  });
+
+  const document = JSON.parse(readFileSync(filePath, 'utf8'));
+  const record = document.records[started.taskId];
+  const precedingAt = record.events.at(-2).at;
+  record.events.at(-1).at = precedingAt;
+  record.events.at(-1).evidence.receivedAt = precedingAt;
+  writeFileSync(filePath, JSON.stringify(document, null, 2) + '\n', 'utf8');
+  const corruptedBytes = readFileSync(filePath, 'utf8');
+
+  assert.throws(
+    () => create({ store: createFictionalJsonFileStore({ filePath }) }).get(started.taskId),
+    /later than the preceding recorded event/,
+  );
+  assert.equal(readFileSync(filePath, 'utf8'), corruptedBytes);
+}));
+
 test('durable persistence and assignment evidence linkage fails closed', () => withStore(({ filePath, store }) => {
   const r = create({ store });
   const started = start(r, 'durable-task-assignment-lineage');
