@@ -148,6 +148,28 @@ test('durable idempotency lookup must return the exact requested correlation', (
   );
 });
 
+test('durable idempotency lookup rejects non-fictional or identifierless records', () => {
+  const valid = start(create(), 'requested-correlation');
+  const cases = [
+    [{ ...valid, fictional: false }, /fictional staging record/],
+    [{ ...valid, taskId: undefined }, /lookup taskId/],
+    [{ ...valid, eventId: undefined }, /lookup eventId/],
+  ];
+
+  for (const [lookupRecord, expected] of cases) {
+    let saveCalls = 0;
+    const store = {
+      allocateSequence: () => 99,
+      save: () => { saveCalls += 1; },
+      read: () => null,
+      findByCorrelation: () => lookupRecord,
+    };
+    const r = create({ store });
+    assert.throws(() => start(r, 'requested-correlation'), expected);
+    assert.equal(saveCalls, 0);
+  }
+});
+
 test('same-organization handoff is rejected before persistence', () => {
   const r = create();
   assert.throws(() => r.receive({
