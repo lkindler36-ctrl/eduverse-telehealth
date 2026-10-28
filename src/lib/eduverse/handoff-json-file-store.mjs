@@ -158,6 +158,17 @@ function validateRecord(record, { allowZeroVersion = false } = {}) {
         ) {
           throw new Error('Stored verified receipt time must match its event timestamp.');
         }
+        const previousEventAt = index > 0
+          ? record.events[index - 1].at
+          : null;
+        if (
+          previousEventAt &&
+          Date.parse(event.evidence.receivedAt) <= Date.parse(previousEventAt)
+        ) {
+          throw new Error(
+            'Stored verified receipt must be later than the preceding recorded event.',
+          );
+        }
         if (Date.parse(event.evidence.receivedAt) <= Date.parse(recordedDispatchAt)) {
           throw new Error('Stored verified receipt must be later than its dispatch attempt.');
         }
