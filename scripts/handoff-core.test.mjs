@@ -344,7 +344,7 @@ test('cross-linked or internally inconsistent durable history fails closed', () 
         document.records[started.taskId].events[1].state = 'ASSIGNED_ACKNOWLEDGED';
         document.records[started.taskId].state = 'ASSIGNED_ACKNOWLEDGED';
       },
-      error: /invalid transition/,
+      error: /invalid transition|assignment evidence\.acknowledgementId must be/,
     },
   ];
 
@@ -394,6 +394,39 @@ test('durable dispatch and receipt evidence linkage fails closed', async () => w
           '2026-10-18T12:02:00.000Z';
       },
       error: /receipt time must match its event timestamp/,
+    },
+  ];
+
+  for (const corruption of cases) {
+    const document = structuredClone(original);
+    corruption.mutate(document);
+    writeFileSync(filePath, JSON.stringify(document, null, 2) + '\n', 'utf8');
+    const corruptedBytes = readFileSync(filePath, 'utf8');
+    assert.throws(
+      () => create({ store: createFictionalJsonFileStore({ filePath }) }).get(started.taskId),
+      corruption.error,
+    );
+    assert.equal(readFileSync(filePath, 'utf8'), corruptedBytes);
+  }
+}));
+
+test('durable persistence and assignment evidence linkage fails closed', () => withStore(({ filePath, store }) => {
+  const r = create({ store });
+  const started = start(r, 'durable-task-assignment-lineage');
+  advanceToDispatch(r, started.taskId);
+  const original = JSON.parse(readFileSync(filePath, 'utf8'));
+  const cases = [
+    {
+      mutate: (document) => {
+        delete document.records[started.taskId].events[2].evidence.storageRecordId;
+      },
+      error: /persistence evidence\.storageRecordId must be/,
+    },
+    {
+      mutate: (document) => {
+        delete document.records[started.taskId].events[4].evidence.acknowledgementId;
+      },
+      error: /assignment evidence\.acknowledgementId must be/,
     },
   ];
 
