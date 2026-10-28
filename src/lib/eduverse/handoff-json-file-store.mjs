@@ -98,6 +98,18 @@ function validateRecord(record, { allowZeroVersion = false } = {}) {
     ) {
       throw new Error('Stored event evidence must be an object.');
     }
+    if (event.state === 'PERSISTENCE_EVIDENCE_ATTACHED') {
+      safeId(
+        event.evidence.storageRecordId,
+        'persistence evidence.storageRecordId',
+      );
+    }
+    if (event.state === 'ASSIGNED_ACKNOWLEDGED') {
+      safeId(
+        event.evidence.acknowledgementId,
+        'assignment evidence.acknowledgementId',
+      );
+    }
     if (event.state === 'DISPATCH_ATTEMPTED') {
       recordedDispatchId = safeId(
         event.evidence.dispatchId,
